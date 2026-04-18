@@ -107,6 +107,29 @@ def remove_friend(
 
 
 @router.get(
+    "/{user_id}/friends",
+    response_model=list[UserOut],
+    summary="List a user's friends",
+)
+def list_user_friends(user_id: str, db: Database = Depends(get_db)) -> list[UserOut]:
+    uid = parse_object_id(user_id, field="user_id")
+    user = db.users.find_one({"_id": uid})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    friend_ids = user.get("friend_ids")
+    if friend_ids is None:
+        friend_ids = user.get("friendIds", [])
+    if not friend_ids:
+        return []
+
+    friends = list(db.users.find({"_id": {"$in": friend_ids}}))
+    by_id = {doc["_id"]: doc for doc in friends}
+    ordered = [by_id[fid] for fid in friend_ids if fid in by_id]
+    return [user_document_to_out(doc) for doc in ordered]
+
+
+@router.get(
     "/{user_id}/groups",
     response_model=list[GroupOut],
     summary="List groups a user belongs to",
