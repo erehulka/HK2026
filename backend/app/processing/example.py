@@ -2,7 +2,7 @@
 
 import receipt_processor
 
-result = receipt_processor.process_receipt('test_data/incomplete3.jpg', 'outputs')
+result = receipt_processor.process_receipt('test_data/complete_crumbled1.png', 'outputs')
 
 if not result.ok:
     print(f"✗ Processing failed: {result.reason}")
@@ -29,3 +29,12 @@ print("\n── Translating to English …")
 translated = result.translate("English", interpreted=interpreted)
 for ti in translated:
     print(f"  [{ti.index}] [{ti.source_language}] {ti.original_name!r:30s} → {ti.translated_name!r}")
+
+
+print("------------- Testing sublist summarisation --------------")
+
+cur_sublist = ['VINYL GLOVES']
+
+print(f"Current sublist: {', '.join(cur_sublist)}")
+
+print(receipt_processor.summarise_item_sublist(d, cur_sublist))

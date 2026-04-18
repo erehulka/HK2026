@@ -592,9 +592,21 @@ ITEM EXTRACTION RULES:
 LANGUAGE RULE:
 - Assign "und" (undetermined) to each language field--the actual value will be assigned later.
 
+Receipts can appear in ANY language and ANY script, including Arabic, Chinese,
+Japanese, Cyrillic, Hebrew, Thai, Hindi, etc. Right‑to‑left text and non‑Western
+numerals (e.g. Arabic‑Indic digits) are valid. In case of right-to-left text, be
+aware of the pattern
+price1 label1
+price2 label2
+...
+total_price "TOTAL"
+in which case pair each label with the price in its row, i.e. right before, not
+with price right after.
+
 Data field explanations:
   -Global properties:
-    -summary_label: A short, human-readable label for the receipt (i.e. "Groceries" or "Tobacco shop")
+    -summary_label: A short, human-readable label for the receipt (i.e. "Groceries" or "Tobacco shop").
+    This cannot be empty--if you cannot decide, fall back to "Receipt"
     -merchant_name: Name of shop or company if present on the receipt.
     -merchant_address: address of merchant, if present on the receipt
     -date: Date of purchase, if present on the receipt
@@ -602,7 +614,7 @@ Data field explanations:
     -currency: Monetary currency as indicated by the receipt. The indication may be a single symbol, such as $ or £
     -subtotal: sum of item prices, before VAT
     -vat_rate_pct: VAT rate in percent
-    -vat_amound: VAT amount added to the subtotal
+    -vat_amount: VAT amount added to the subtotal
     -tip: The tip, if present as an individual item (but also include it in items)
     -total: Total invoiced amount, including VAT
     -raw_text: Raw output of the OCR procedure
@@ -857,6 +869,70 @@ def _step3_save(data: ReceiptData, image_path: Path, output_dir: Path) -> Path:
     with open(json_path, "w", encoding="utf-8") as fh:
         json.dump(data.to_dict(), fh, indent=2, ensure_ascii=False)
     return json_path
+
+
+# -- Other functions -----------------------------------------------------------
+
+def summarise_item_sublist(
+    receipt_data: ReceiptData,
+    item_sublist: list[str],
+) -> str:
+    """
+    Summarise a subset of receipt items into a short natural-language phrase.
+    Uses an LLM call but is strictly extractive and non-creative.
+    """
+
+    if not item_sublist:
+        return "No items"
+
+    client = Mistral(api_key=_require_mistral_api_key())
+
+    # Prepare payload for the LLM
+    all_items_payload = [
+        {"name": item.name, "quantity": item.quantity, "total_price": item.total_price}
+        for item in receipt_data.items
+    ]
+
+    selected_payload = [
+        {"name": item}
+        for item in item_sublist
+    ]
+
+    system = (
+        "You are an expert at summarising subsets of receipt items. "
+        "You MUST be strictly extractive: do NOT invent items, categories, or brands. "
+        "Your output must be a single short natural-language phrase."
+    )
+
+    prompt = f"""
+You are given:
+1. A list of ALL items on a receipt.
+2. A list of SELECTED items (a subset of the full list).
+
+Your task:
+- Summarise the SELECTED items into a short natural-language phrase.
+- You may group items into categories (e.g. 'tobacco products', 'groceries', 'drinks'),
+  but ONLY if the grouping is clearly supported by the item names.
+- If the selected items represent only PART of a category present in the full receipt,
+  prefix with 'some', e.g. 'some clothes'.
+- If the selected items represent ALL items of a category, use the bare category name.
+- You may mix categories and individual items if needed.
+- The summary must be concise (max ~10 words).
+- DO NOT hallucinate. Use ONLY the provided item names.
+
+ALL ITEMS:
+{json.dumps(all_items_payload, ensure_ascii=False, indent=2)}
+
+SELECTED ITEMS:
+{json.dumps(item_sublist, ensure_ascii=False, indent=2)}
+
+Return ONLY the summary phrase, nothing else.
+"""
+
+    raw = _call_mistral_text(client, prompt, system=system)
+    summary = raw.strip().strip('"').strip("'")
+    return summary
+
 
 
 # ── main pipeline ─────────────────────────────────────────────────────────────

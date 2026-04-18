@@ -1,0 +1,148 @@
+{
+  "summary_label": "Receipt",
+  "merchant_name": "PUBLIX",
+  "merchant_address": "31/33 KHU 27",
+  "date": null,
+  "time": null,
+  "items": [
+    {
+      "name": "PUB DICED TOMATOES",
+      "quantity": 1.0,
+      "unit_price": 0.67,
+      "total_price": 0.67,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PUBLIX TOM/PASTE",
+      "quantity": 1.0,
+      "unit_price": 0.75,
+      "total_price": 0.75,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PF W/G WHEAT BREAD",
+      "quantity": 1.0,
+      "unit_price": 4.49,
+      "total_price": 4.49,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PBX FNCY PARM SHRD",
+      "quantity": 1.0,
+      "unit_price": 3.89,
+      "total_price": 3.89,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "IMPOSS BURG",
+      "quantity": 1.0,
+      "unit_price": 7.59,
+      "total_price": 7.59,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "BNLS CHICK BREAST",
+      "quantity": 1.0,
+      "unit_price": 12.18,
+      "total_price": 12.18,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PUBLIX FF LT VANIL",
+      "quantity": 1.0,
+      "unit_price": 2.0,
+      "total_price": 2.0,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "LIMES PERSIAN",
+      "quantity": 3.0,
+      "unit_price": 0.58,
+      "total_price": 1.74,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PAC BROTH CHCKN LS",
+      "quantity": 1.0,
+      "unit_price": 5.99,
+      "total_price": 5.99,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "JIF RD FT CREAMY",
+      "quantity": 1.0,
+      "unit_price": 5.75,
+      "total_price": 5.75,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PUBLIX GREEN BEANS",
+      "quantity": 1.0,
+      "unit_price": 0.89,
+      "total_price": 0.89,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "HZ TOMATO KETCHUP",
+      "quantity": 1.0,
+      "unit_price": 6.39,
+      "total_price": 6.39,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "PEPPERS GREEN BELL",
+      "quantity": 1.14,
+      "unit_price": 2.49,
+      "total_price": 2.84,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "BELL PEPPERS RED",
+      "quantity": 0.55,
+      "unit_price": 3.99,
+      "total_price": 2.19,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "ORGANIC CARROTS",
+      "quantity": 1.0,
+      "unit_price": 1.69,
+      "total_price": 1.69,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "BANANA SHALLOTS",
+      "quantity": 0.2,
+      "unit_price": 6.99,
+      "total_price": 1.4,
+      "notes": "",
+      "language": "en"
+    }
+  ],
+  "subtotal": 100.0,
+  "vat_rate_pct": null,
+  "vat_amount": null,
+  "tip": null,
+  "total": 100.0,
+  "currency": "USD",
+  "ocr_sum_verified": false,
+  "raw_text": "PUB 31/33 KHU 27\nYou Saved 6.00\nPUB DICED TOMATOES 0.67 F\nPUBLIX TOM/PASTE 0.75 F\nPF W/G WHEAT BREAD 4.49 F\nPBX FNCY PARM SHRD 3.89 F\nIMPOSS BURG 7.59 F\nBNLS CHICK BREAST 12.18 F\nPUBLIX FF LT VANIL\n1 @ 2 FOR 4.00 2.00 F\nLIMES PERSIAN\n3 @ 0.58 1.74 F\nPAC BROTH CHCKN LS 5.99 F\nJIF RD FT CREAMY 5.75 F\nPUBLIX GREEN BEANS 0.89 F\nHZ TOMATO KETCHUP 6.39 F\nPEPPERS GREEN BELL\n1.14 lb @ 2.49/ lb 2.84 F\nBELL PEPPERS RED\n0.55 lb @ 3.99/ lb 2.19 F\nORGANIC CARROTS 1.69 F\nBANANA SHALLOTS\n0.20 lb @ 6.99/ lb 1.40 F\n\nOrder Total 100.00\nSales Tax 0.00\nGrand Total 100.00\nCredit Payment 100.00\nChange 0.00",
+  "languages": [
+    "en"
+  ]
+}
