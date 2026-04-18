@@ -36,6 +36,7 @@ def create_group(body: GroupCreate, db: Database = Depends(get_db)) -> GroupOut:
         id=str(result.inserted_id),
         name=body.name,
         description=body.description,
+        expenses=[],
         created_at=created_at,
     )
 
