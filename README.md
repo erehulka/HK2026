@@ -20,6 +20,24 @@ Then open `http://127.0.0.1:8000/`.
 
 API docs: `http://127.0.0.1:8000/docs`.
 
+### Run tests
+
+From the repo root (or after `cd backend`):
+
+```bash
+cd backend
+poetry install --with dev
+poetry run pytest
+```
+
+Run a single file or with verbose output:
+
+```bash
+poetry run pytest tests/test_debts_simplify.py -v
+```
+
+Tests live under `backend/tests/` and do not require MongoDB or `.env` unless a test explicitly needs them.
+
 ### Dependencies
 
 - Change versions in `backend/pyproject.toml`, then run `poetry lock` and `poetry install`.

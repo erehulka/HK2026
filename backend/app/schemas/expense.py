@@ -14,6 +14,20 @@ class ExpenseSplitType(str, Enum):
     EQUAL = "Equal"
     SHARES = "Shares"
 
+def _amount_cents_from_mongo(value: Any) -> int:
+    """Read stored expense total as integer euro cents."""
+    if type(value) is bool:
+        msg = "amount must not be a boolean"
+        raise TypeError(msg)
+    if isinstance(value, int):
+        return value
+    msg = f"Unsupported amount type: {type(value)}"
+    raise TypeError(msg)
+
+
+def read_stored_expense_amount_cents(value: Any) -> int:
+    """Read an ``amount`` field from MongoDB (integer euro cents)."""
+    return _amount_cents_from_mongo(value)
 
 class ExpenseCreate(BaseModel):
     """Body for creating an expense in a group."""
