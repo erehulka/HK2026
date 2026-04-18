@@ -1,4 +1,4 @@
-"""Tests for ``app.debts.simplify`` (equal-split gross IOUs + max-flow simplification)."""
+"""Tests for ``app.debts.simplify`` (equal-split gross IOUs + net-balance simplification)."""
 
 from __future__ import annotations
 
@@ -104,8 +104,8 @@ def test_equal_shares_cents_rejects_nonpositive_n() -> None:
         _equal_shares_cents(10, 0)
 
 
-def test_simplify_chain_keeps_only_existing_edges() -> None:
-    """A→B and B→C in gross graph: simplification does not introduce A→C."""
+def test_simplify_chain_collapses_through_zero_net_middle() -> None:
+    """Gross A→B and B→C: net balances allow a single settlement A→C."""
     A, B, C = ObjectId(), ObjectId(), ObjectId()
     mi = _sorted_member_index([A, B, C])
     expenses = [
@@ -127,9 +127,9 @@ def test_simplify_chain_keeps_only_existing_edges() -> None:
     mat = _simplify_from_gross(gross)
     ia, ib, ic = mi[str(A)], mi[str(B)], mi[str(C)]
     assert bal[ia] == -10 and bal[ic] == 10 and bal[ib] == 0
-    assert mat[ia][ib] == 10 and mat[ib][ic] == 10
-    assert mat[ia][ic] == 0
-    assert sum(sum(row) for row in mat) == 20
+    assert mat[ia][ic] == 10
+    assert mat[ia][ib] == mat[ib][ic] == mat[ib][ia] == mat[ic][ib] == 0
+    assert sum(sum(row) for row in mat) == 10
 
 
 def test_balances_mutual_expenses_net_to_zero_matrix() -> None:
@@ -211,9 +211,9 @@ def test_simplified_debt_matrix_cents_integration() -> None:
     member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
     assert member_ids == sorted([str(A), str(B), str(C)])
     ia, ib, ic = member_ids.index(str(A)), member_ids.index(str(B)), member_ids.index(str(C))
-    assert matrix[ia][ib] == 10 and matrix[ib][ic] == 10
-    assert matrix[ia][ic] == 0
-    assert sum(sum(row) for row in matrix) == 20
+    assert matrix[ia][ic] == 10
+    assert matrix[ia][ib] == matrix[ib][ic] == matrix[ib][ia] == matrix[ic][ib] == 0
+    assert sum(sum(row) for row in matrix) == 10
     _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
 
 

@@ -1,16 +1,16 @@
 """Group debt simplification: gross IOUs from expenses.
 
-Implements the max-flow iteration described in
-https://medium.com/@mithunmk93/algorithm-behind-splitwises-debt-simplification-feature-8ac485e97688
-(and the referenced Java sketch): repeatedly max-flow along an unvisited arc, rebuild from
-the residual graph, then add that arc with capacity equal to the max flow.
+After aggregating evenly-split expenses into a gross IOU matrix, we **simplify** to a smaller
+set of directed debts by matching net debtors to net creditors (greedy by ascending member
+index). This preserves each member's net balance and can introduce a direct arc between two
+people who never shared an expense edge (e.g. ``A→C`` when expenses only implied ``A→B`` and
+``B→C``).
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Union
 
-import networkx as nx
 from bson import ObjectId
 
 from app.mongo_ids import parse_object_id
@@ -20,38 +20,6 @@ if TYPE_CHECKING:
     from pymongo.database import Database
 
 GroupId = Union[str, ObjectId]
-
-
-def _max_flow_value_and_residual_matrix(
-    cap: list[list[int]], s: int, t: int
-) -> tuple[int, list[list[int]]]:
-    """
-    Max ``s→t`` flow on ``cap`` (euro cents), plus residual capacities as an ``n*n`` matrix.
-
-    For each edge ``(u,v)`` with capacity ``c`` and flow ``f``: residual forward ``c-f``,
-    residual reverse ``f`` (same convention as the hand-rolled Dinic step this replaced).
-    """
-    n = len(cap)
-    G = nx.DiGraph()
-    for u in range(n):
-        for v in range(n):
-            c = cap[u][v]
-            if c > 0:
-                G.add_edge(u, v, capacity=c)
-
-    maxf, flow_dict = nx.maximum_flow(G, s, t)
-
-    new_cap = [[0] * n for _ in range(n)]
-    for u, v in G.edges():
-        c = int(G.edges[u, v]["capacity"])
-        f = int(flow_dict.get(u, {}).get(v, 0))
-        rem = c - f
-        if rem > 0:
-            new_cap[u][v] += rem
-        if f > 0:
-            new_cap[v][u] += f
-
-    return maxf, new_cap
 
 
 def _equal_shares_cents(total_cents: int, n: int) -> list[int]:
@@ -70,8 +38,6 @@ def _gross_matrix_from_even_expenses(
 ) -> list[list[int]]:
     """
     Directed IOUs from evenly-split expenses: ``gross[i][j]`` is cents member ``i`` owes ``j``.
-
-    Only edges that already exist from expenses can appear in simplification.
     """
     gross = [[0] * n for _ in range(n)]
     for doc in expenses:
@@ -120,62 +86,40 @@ def _balances_from_gross_matrix(gross: list[list[int]]) -> list[int]:
     return balances
 
 
-def _net_pairwise_matrix(cap: list[list[int]]) -> list[list[int]]:
-    """Cancel opposite arcs between each unordered pair; non-negative entries only."""
-    n = len(cap)
-    out = [[0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(i + 1, n):
-            net = cap[i][j] - cap[j][i]
-            if net > 0:
-                out[i][j] = net
-            elif net < 0:
-                out[j][i] = -net
-    return out
-
-
 def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
     """
-    Simplify debts / max-flow iteration (Mithun Mohan K, Medium, 2019).
+    Reduce debts to a **net-balance** settlement: every net debtor pays net creditors so that
+    per-person inflow minus outflow matches the gross IOU aggregate.
 
-    Repeatedly pick an unvisited arc ``(s, t)`` with positive capacity, compute max ``s→t``
-    flow on the current graph, rebuild the graph from residual capacities, then add a direct
-    arc ``(s, t)`` with capacity equal to that max flow. This never introduces a new creditor
-    relationship beyond what residual arcs already imply; pairwise opposite debts are netted
-    at the end (and once up front so circular gross IOUs start from a minimal edge set).
-
-    If every member's net balance is already zero (e.g. a directed cycle that nets out), no
-    settlement is required and the result is an all-zero matrix. (The iterative construction
-    is only meant for redistributing flow when nets are non-trivial; on pure circulations it
-    would otherwise drift away from conservation.)
+    Members with zero net balance have no incident arcs. Pairs are matched greedily in
+    ascending member index order among debtors and among creditors (deterministic, at most
+    one arc per debtor–creditor pair).
     """
     n = len(gross)
-    cap = _net_pairwise_matrix(gross)
-    if all(b == 0 for b in _balances_from_gross_matrix(cap)):
+    balances = _balances_from_gross_matrix(gross)
+    if all(b == 0 for b in balances):
         return [[0] * n for _ in range(n)]
 
-    visited: set[tuple[int, int]] = set()
+    debtors = [[i, -balances[i]] for i in range(n) if balances[i] < 0]
+    creditors = [[i, balances[i]] for i in range(n) if balances[i] > 0]
+    debtors.sort(key=lambda t: t[0])
+    creditors.sort(key=lambda t: t[0])
 
-    while True:
-        pivot: tuple[int, int] | None = None
-        for i in range(n):
-            for j in range(n):
-                if cap[i][j] > 0 and (i, j) not in visited:
-                    pivot = (i, j)
-                    break
-            if pivot is not None:
-                break
-        if pivot is None:
-            break
+    matrix = [[0] * n for _ in range(n)]
+    di = ci = 0
+    while di < len(debtors) and ci < len(creditors):
+        d_i, d_amt = debtors[di]
+        c_i, c_amt = creditors[ci]
+        x = min(d_amt, c_amt)
+        matrix[d_i][c_i] += x
+        debtors[di][1] = d_amt - x
+        creditors[ci][1] = c_amt - x
+        if debtors[di][1] == 0:
+            di += 1
+        if creditors[ci][1] == 0:
+            ci += 1
 
-        s, t = pivot
-        visited.add((s, t))
-
-        maxf, new_cap = _max_flow_value_and_residual_matrix(cap, s, t)
-        new_cap[s][t] += maxf
-        cap = new_cap
-
-    return _net_pairwise_matrix(cap)
+    return matrix
 
 
 def simplified_debt_matrix_cents(
@@ -191,11 +135,9 @@ def simplified_debt_matrix_cents(
       lexicographically for a stable row/column order.
     - ``matrix[i][j]`` is how many **euro cents** member ``i`` owes member ``j`` (0 if no debt).
 
-    Simplification follows the max-flow iteration described for debt
-    simplification: net balances are preserved, and settlement only uses (and adjusts)
-    money movement along directions that already existed in the gross IOU graph built from
-    expenses (no brand-new debtor/creditor pairs such as ``A→C`` when only ``A→B`` and
-    ``B→C`` ever appeared).
+    Simplification matches net debtors to net creditors while preserving each member's net
+    balance from the expense aggregate. Direct ``i→j`` debts may appear even when no single
+    expense had ``i`` owing ``j``.
 
     Raises:
         ValueError: unknown expense type, or a participant/payer not in the group.
