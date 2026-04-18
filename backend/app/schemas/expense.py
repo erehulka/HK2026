@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.item import _amount_from_mongo
-
-if TYPE_CHECKING:
-    from app.schemas.item import ItemOut
+from app.schemas.item import ItemOut, _amount_from_mongo
 
 
 class ExpenseCreate(BaseModel):
@@ -60,7 +56,7 @@ class ExpenseOut(BaseModel):
 class ExpenseDetailOut(ExpenseOut):
     """Expense returned with populated item documents."""
 
-    items: list["ItemOut"]
+    items: list[ItemOut]
 
 
 def expense_document_to_out(doc: dict) -> ExpenseOut:

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
-
-if TYPE_CHECKING:
-    from app.schemas.expense import ExpenseOut
+from app.schemas.expense import ExpenseOut
 
 
 class GroupCreate(BaseModel):
@@ -54,7 +51,7 @@ class GroupOut(BaseModel):
 class GroupDetailOut(GroupOut):
     """Group returned with populated expense documents."""
 
-    expenses: list["ExpenseOut"]
+    expenses: list[ExpenseOut]
 
 
 def group_document_to_out(doc: dict) -> GroupOut:
