@@ -89,7 +89,16 @@ def _participant_ids_from_items(item_docs: list[dict]) -> list[ObjectId]:
 
 def _total_amount_from_items(item_docs: list[dict]) -> int:
     """Compute expense total as the sum of item amounts."""
-    return sum(int(item["amount"]) for item in item_docs)
+    total = 0
+    for item in item_docs:
+        amount = item["amount"]
+        if not isinstance(amount, int) or isinstance(amount, bool):
+            raise HTTPException(
+                status_code=500,
+                detail="Stored item amount must be an integer",
+            )
+        total += amount
+    return total
 
 
 def _refresh_expense_totals(db: Database, expense_id: ObjectId) -> dict | None:
