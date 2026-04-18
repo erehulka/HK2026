@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
 import {
   FRIEND_INVITE_LINK,
@@ -26,16 +26,23 @@ export function InviteFriends({
   };
 
   return (
-    <View style={styles.section}>
-      <View style={styles.header}>
-        <Text style={styles.label}>Invite Friends</Text>
-        <Pressable onPress={handleCopyInviteLink} style={styles.linkButton}>
-          <Text style={styles.linkButtonText}>Copy invite link</Text>
+    <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
+      <View className="flex-row items-center justify-between">
+        <Text className="text-base font-semibold text-app-text">
+          Invite Friends
+        </Text>
+        <Pressable
+          onPress={handleCopyInviteLink}
+          className="px-[10px] py-[6px] rounded-lg border border-app-border"
+        >
+          <Text className="text-[13px] font-semibold text-app-muted">
+            Copy invite link
+          </Text>
         </Pressable>
       </View>
 
       {friends.length === 0 ? (
-        <Text style={styles.emptyState}>You have no friends yet.</Text>
+        <Text className="italic text-app-muted">You have no friends yet.</Text>
       ) : (
         friends.map((friend) => {
           const isSelected = selectedFriendIds.includes(friend.id);
@@ -43,13 +50,21 @@ export function InviteFriends({
             <Pressable
               key={friend.id}
               onPress={() => onToggleFriend(friend.id)}
-              style={[styles.friendRow, isSelected && styles.friendRowSelected]}
+              className={`flex-row items-center justify-between border border-app-border-soft rounded-[10px] py-[10px] px-3 ${
+                isSelected ? "bg-app-border-soft" : "bg-app-card"
+              }`}
             >
-              <Text style={styles.friendName}>{friend.name}</Text>
+              <Text className="text-[15px] text-app-text">{friend.name}</Text>
               <View
-                style={[styles.checkbox, isSelected && styles.checkboxSelected]}
+                className={`w-[22px] h-[22px] rounded-md border items-center justify-center ${
+                  isSelected
+                    ? "bg-white border-white"
+                    : "bg-app-card border-app-input-border"
+                }`}
               >
-                {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                {isSelected && (
+                  <Text className="font-bold text-app-border-soft">✓</Text>
+                )}
               </View>
             </Pressable>
           );
@@ -58,76 +73,3 @@ export function InviteFriends({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    backgroundColor: "#090d1a",
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  label: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  linkButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#2563eb",
-  },
-  linkButtonText: {
-    color: "#9fb8ff",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-  emptyState: {
-    color: "#9fb8ff",
-    fontStyle: "italic",
-  },
-  friendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#0f172a",
-    borderWidth: 1,
-    borderColor: "#1d4ed8",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  friendRowSelected: {
-    backgroundColor: "#1d4ed8",
-  },
-  friendName: {
-    color: "#ffffff",
-    fontSize: 15,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#3b82f6",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0f172a",
-  },
-  checkboxSelected: {
-    backgroundColor: "#ffffff",
-    borderColor: "#ffffff",
-  },
-  checkmark: {
-    color: "#1d4ed8",
-    fontWeight: "700",
-  },
-});

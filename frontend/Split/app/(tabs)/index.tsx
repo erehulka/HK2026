@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Group, MOCK_GROUPS } from "@/constants/mock-groups";
 
@@ -14,17 +15,19 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Groups</Text>
-        <Text style={styles.subtitle}>
+    <SafeAreaView className="flex-1 bg-app-bg">
+      <View className="flex-1 px-5 py-4 gap-5">
+        <Text className="text-3xl font-bold text-app-text">Groups</Text>
+        <Text className="text-sm text-app-muted">
           Simple mock view for existing groups.
         </Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Existing Groups</Text>
+        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
+          <Text className="text-lg font-semibold text-app-text">
+            Existing Groups
+          </Text>
           {groups.length === 0 ? (
-            <Text style={styles.emptyState}>
+            <Text className="italic text-app-muted">
               No groups exist at the moment.
             </Text>
           ) : (
@@ -32,9 +35,9 @@ export default function HomeScreen() {
               <Pressable
                 key={group.id}
                 onPress={() => router.push(`/group/${group.id}`)}
-                style={styles.groupCard}
+                className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
               >
-                <Text style={styles.groupName}>{group.name}</Text>
+                <Text className="text-base text-app-text">{group.name}</Text>
               </Pressable>
             ))
           )}
@@ -42,72 +45,11 @@ export default function HomeScreen() {
 
         <Pressable
           onPress={() => router.push("/create-group")}
-          style={styles.button}
+          className="bg-app-primary rounded-[10px] py-3 items-center"
         >
-          <Text style={styles.buttonText}>Add Group</Text>
+          <Text className="text-app-text font-semibold">Add Group</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 20,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  subtitle: {
-    color: "#9fb8ff",
-    fontSize: 14,
-  },
-  section: {
-    backgroundColor: "#090d1a",
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#ffffff",
-  },
-  groupCard: {
-    backgroundColor: "#0f172a",
-    borderWidth: 1,
-    borderColor: "#1d4ed8",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  groupName: {
-    color: "#ffffff",
-    fontSize: 16,
-  },
-  emptyState: {
-    color: "#9fb8ff",
-    fontStyle: "italic",
-  },
-  button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontWeight: "600",
-  },
-});

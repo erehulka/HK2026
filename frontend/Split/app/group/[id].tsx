@@ -1,12 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
-import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getGroupById } from "@/constants/mock-groups";
 import { getPaymentsForGroup } from "@/constants/mock-payments";
@@ -18,9 +12,11 @@ export default function GroupDetailScreen() {
 
   if (!group) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Group not found</Text>
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 px-5 py-4 gap-5">
+          <Text className="text-3xl font-bold text-app-text">
+            Group not found
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -28,47 +24,54 @@ export default function GroupDetailScreen() {
 
   const balanceColor =
     group.balance > 0
-      ? styles.balancePositive
+      ? "text-app-success"
       : group.balance < 0
-      ? styles.balanceNegative
-      : styles.balanceNeutral;
+      ? "text-app-danger"
+      : "text-app-text";
 
   return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>{group.name}</Text>
+    <SafeAreaView className="flex-1 bg-app-bg">
+      <ScrollView contentContainerClassName="px-5 pt-16 pb-6 gap-5">
+        <Text className="text-[28px] font-bold text-app-text">
+          {group.name}
+        </Text>
 
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Your balance</Text>
-          <Text style={[styles.balanceValue, balanceColor]}>
+        <View className="bg-app-surface border border-app-border rounded-xl p-4 gap-[6px]">
+          <Text className="text-[13px] text-app-muted">Your balance</Text>
+          <Text className={`text-[28px] font-bold ${balanceColor}`}>
             {group.balance > 0 ? "+" : ""}
             {group.balance.toFixed(2)}
           </Text>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable style={[styles.actionButton, styles.settingsButton]}>
-            <Text style={styles.actionText}>Settings</Text>
+        <View className="flex-row gap-3">
+          <Pressable className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel">
+            <Text className="text-app-text font-semibold">Settings</Text>
           </Pressable>
-          <Pressable style={[styles.actionButton, styles.cardButton]}>
-            <Text style={styles.actionText}>Group Card</Text>
+          <Pressable className="flex-1 rounded-[10px] py-3 items-center bg-app-primary">
+            <Text className="text-app-text font-semibold">Group Card</Text>
           </Pressable>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payments</Text>
+        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
+          <Text className="text-lg font-semibold text-app-text">Payments</Text>
           {payments.length === 0 ? (
-            <Text style={styles.emptyState}>No payments yet.</Text>
+            <Text className="italic text-app-muted">No payments yet.</Text>
           ) : (
             payments.map((payment) => (
-              <View key={payment.id} style={styles.paymentRow}>
-                <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentName}>{payment.name}</Text>
-                  <Text style={styles.paymentMeta}>
+              <View
+                key={payment.id}
+                className="flex-row items-center justify-between bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
+              >
+                <View className="flex-1">
+                  <Text className="text-[15px] font-semibold text-app-text">
+                    {payment.name}
+                  </Text>
+                  <Text className="text-xs text-app-muted mt-[2px]">
                     {payment.date} · {payment.paidBy}
                   </Text>
                 </View>
-                <Text style={styles.paymentAmount}>
+                <Text className="text-base font-bold text-app-text">
                   {payment.amount.toFixed(2)}
                 </Text>
               </View>
@@ -79,112 +82,3 @@ export default function GroupDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
-  container: {
-    paddingHorizontal: 20,
-    paddingTop: 64,
-    paddingBottom: 24,
-    gap: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  balanceCard: {
-    backgroundColor: "#090d1a",
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 12,
-    padding: 16,
-    gap: 6,
-  },
-  balanceLabel: {
-    color: "#9fb8ff",
-    fontSize: 13,
-  },
-  balanceValue: {
-    fontSize: 28,
-    fontWeight: "700",
-  },
-  balancePositive: {
-    color: "#22c55e",
-  },
-  balanceNegative: {
-    color: "#ef4444",
-  },
-  balanceNeutral: {
-    color: "#ffffff",
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  settingsButton: {
-    backgroundColor: "#374151",
-  },
-  cardButton: {
-    backgroundColor: "#2563eb",
-  },
-  actionText: {
-    color: "#ffffff",
-    fontWeight: "600",
-  },
-  section: {
-    backgroundColor: "#090d1a",
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-  },
-  sectionTitle: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  emptyState: {
-    color: "#9fb8ff",
-    fontStyle: "italic",
-  },
-  paymentRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#0f172a",
-    borderWidth: 1,
-    borderColor: "#1d4ed8",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  paymentInfo: {
-    flex: 1,
-  },
-  paymentName: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  paymentMeta: {
-    color: "#9fb8ff",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  paymentAmount: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-});
