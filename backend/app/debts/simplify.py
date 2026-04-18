@@ -101,15 +101,15 @@ def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
     if all(b == 0 for b in balances):
         return [[0] * n for _ in range(n)]
 
-    debtor_heap = [(balances[i], i) for i in range(n) if balances[i] < 0]
-    creditor_heap = [(-balances[i], i) for i in range(n) if balances[i] > 0]
-    heapq.heapify(debtor_heap)
-    heapq.heapify(creditor_heap)
+    debtor_min_heap = [(balances[i], i) for i in range(n) if balances[i] < 0]
+    creditor_min_heap = [(-balances[i], i) for i in range(n) if balances[i] > 0]
+    heapq.heapify(debtor_min_heap)
+    heapq.heapify(creditor_min_heap)
 
     matrix = [[0] * n for _ in range(n)]
-    while debtor_heap and creditor_heap:
-        d_amt_neg, d_i = heapq.heappop(debtor_heap)
-        c_amt_neg, c_i = heapq.heappop(creditor_heap)
+    while debtor_min_heap and creditor_min_heap:
+        d_amt_neg, d_i = heapq.heappop(debtor_min_heap)
+        c_amt_neg, c_i = heapq.heappop(creditor_min_heap)
         d_amt = -d_amt_neg
         c_amt = -c_amt_neg
         x = min(d_amt, c_amt)
@@ -117,9 +117,9 @@ def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
         d_rem = d_amt - x
         c_rem = c_amt - x
         if d_rem > 0:
-            heapq.heappush(debtor_heap, (-d_rem, d_i))
+            heapq.heappush(debtor_min_heap, (-d_rem, d_i))
         if c_rem > 0:
-            heapq.heappush(creditor_heap, (-c_rem, c_i))
+            heapq.heappush(creditor_min_heap, (-c_rem, c_i))
 
     return matrix
 
