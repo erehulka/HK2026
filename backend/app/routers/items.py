@@ -11,7 +11,6 @@ from pymongo.database import Database
 
 from app.deps import get_db
 from app.mongo_ids import parse_object_id
-from app.schemas.expense import expense_document_to_out
 from app.schemas.item import ItemCreate, ItemOut, ItemUpdate, item_document_to_out
 
 router = APIRouter(
