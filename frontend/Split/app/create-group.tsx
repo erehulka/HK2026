@@ -1,14 +1,17 @@
-import { useState } from "react";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   Alert,
   Pressable,
-  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+
+import { InviteFriends } from "@/components/invite-friends";
+import { MOCK_FRIENDS } from "@/constants/mock-friends";
 
 const GROUP_TYPES = ["basic", "trip", "household"] as const;
 type GroupType = (typeof GROUP_TYPES)[number];
@@ -16,18 +19,35 @@ type GroupType = (typeof GROUP_TYPES)[number];
 export default function CreateGroupScreen() {
   const [groupName, setGroupName] = useState("");
   const [groupType, setGroupType] = useState<GroupType>("basic");
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
 
   const trimmedName = groupName.trim();
   const canConfirm = trimmedName.length > 0;
 
+  const toggleFriend = (id: string) => {
+    setSelectedFriendIds((prev) =>
+      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    );
+  };
+
   const handleConfirm = () => {
-    Alert.alert("Group ready", `Name: ${trimmedName}\nType: ${groupType}`, [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+    const invitedNames = MOCK_FRIENDS.filter((f) =>
+      selectedFriendIds.includes(f.id)
+    )
+      .map((f) => f.name)
+      .join(", ");
+
+    Alert.alert(
+      "Group ready",
+      `Name: ${trimmedName}\nType: ${groupType}\nInvited: ${
+        invitedNames || "none"
+      }`,
+      [{ text: "OK", onPress: () => router.back() }]
+    );
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <ScrollView style={styles.screen}>
       <View style={styles.container}>
         <Text style={styles.title}>Create Group</Text>
         <Text style={styles.subtitle}>Choose a name and group type.</Text>
@@ -52,7 +72,10 @@ export default function CreateGroupScreen() {
                 <Pressable
                   key={type}
                   onPress={() => setGroupType(type)}
-                  style={[styles.typeOption, isActive && styles.typeOptionActive]}
+                  style={[
+                    styles.typeOption,
+                    isActive && styles.typeOptionActive,
+                  ]}
                 >
                   <Text
                     style={[
@@ -67,6 +90,11 @@ export default function CreateGroupScreen() {
             })}
           </View>
         </View>
+
+        <InviteFriends
+          selectedFriendIds={selectedFriendIds}
+          onToggleFriend={toggleFriend}
+        />
 
         <View style={styles.actions}>
           <Pressable
@@ -88,7 +116,7 @@ export default function CreateGroupScreen() {
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }
 
