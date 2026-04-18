@@ -70,6 +70,28 @@ def _sorted_member_index(member_oids: list[ObjectId]) -> dict[str, int]:
     return {s: i for i, s in enumerate(ids)}
 
 
+def _net_balances_from_matrix(matrix: list[list[int]]) -> list[int]:
+    """Same convention as ``_balances_from_gross_matrix``: inflow minus outflow per index."""
+    n = len(matrix)
+    return [sum(matrix[j][i] - matrix[i][j] for j in range(n)) for i in range(n)]
+
+
+def _assert_zero_matrix(matrix: list[list[int]]) -> None:
+    assert all(v == 0 for row in matrix for v in row)
+
+
+def _assert_matrix_matches_expected_nets(
+    matrix: list[list[int]],
+    member_ids: list[str],
+    expenses: list[dict],
+) -> None:
+    mi = {uid: i for i, uid in enumerate(member_ids)}
+    n = len(member_ids)
+    want = _balances_from_even_expenses(expenses, mi, n)
+    got = _net_balances_from_matrix(matrix)
+    assert got == want, f"net balances {got!r} != expected from expenses {want!r}"
+
+
 def test_equal_shares_cents_splits_remainder_on_low_indices() -> None:
     assert _equal_shares_cents(10, 3) == [4, 3, 3]
     assert sum(_equal_shares_cents(10, 3)) == 10
@@ -167,23 +189,24 @@ def test_balances_rejects_participant_not_in_group() -> None:
 def test_simplified_debt_matrix_cents_integration() -> None:
     gid = ObjectId()
     A, B, C = ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [B, C],
+            "paid_by_user_id": C,
+        },
+    ]
     db = FakeDatabase(
         group_id=gid,
         member_user_ids=[A, B, C],
-        expense_docs=[
-            {
-                "type": "evenly",
-                "amount": 20,
-                "participant_user_ids": [A, B],
-                "paid_by_user_id": B,
-            },
-            {
-                "type": "evenly",
-                "amount": 20,
-                "participant_user_ids": [B, C],
-                "paid_by_user_id": C,
-            },
-        ],
+        expense_docs=expense_docs,
     )
     member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
     assert member_ids == sorted([str(A), str(B), str(C)])
@@ -191,6 +214,153 @@ def test_simplified_debt_matrix_cents_integration() -> None:
     assert matrix[ia][ib] == 10 and matrix[ib][ic] == 10
     assert matrix[ia][ic] == 0
     assert sum(sum(row) for row in matrix) == 20
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
+
+
+def test_simplified_debt_matrix_cents_triangle_cycle_all_zero() -> None:
+    """Directed cycle A→B→C→A from three even splits: everyone nets zero → empty matrix."""
+    gid = ObjectId()
+    A, B, C = ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [B, C],
+            "paid_by_user_id": C,
+        },
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [C, A],
+            "paid_by_user_id": A,
+        },
+    ]
+    db = FakeDatabase(group_id=gid, member_user_ids=[A, B, C], expense_docs=expense_docs)
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    assert member_ids == sorted([str(A), str(B), str(C)])
+    _assert_zero_matrix(matrix)
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
+
+
+def test_simplified_debt_matrix_cents_star_hub_all_owe_payer() -> None:
+    """One payer for a 4-way even split: each other member owes that payer only."""
+    gid = ObjectId()
+    A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 400,
+            "participant_user_ids": [A, B, C, D],
+            "paid_by_user_id": B,
+        },
+    ]
+    db = FakeDatabase(
+        group_id=gid,
+        member_user_ids=[A, B, C, D],
+        expense_docs=expense_docs,
+    )
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    assert member_ids == sorted([str(A), str(B), str(C), str(D)])
+    ia, ib, ic, id_ = (member_ids.index(str(x)) for x in (A, B, C, D))
+    share = 400 // 4
+    assert matrix[ia][ib] == share and matrix[ic][ib] == share and matrix[id_][ib] == share
+    assert matrix[ib][ia] == matrix[ib][ic] == matrix[ib][id_] == 0
+    assert sum(sum(row) for row in matrix) == 3 * share
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
+
+
+def test_simplified_debt_matrix_cents_member_never_in_expenses_isolated() -> None:
+    """Extra group member with no expenses: no arcs to/from that index."""
+    gid = ObjectId()
+    A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+        {
+            "type": "evenly",
+            "amount": 20,
+            "participant_user_ids": [B, C],
+            "paid_by_user_id": C,
+        },
+    ]
+    db = FakeDatabase(
+        group_id=gid,
+        member_user_ids=[A, B, C, D],
+        expense_docs=expense_docs,
+    )
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    id_ = member_ids.index(str(D))
+    assert sum(matrix[id_]) == 0
+    assert sum(matrix[i][id_] for i in range(len(member_ids))) == 0
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
+
+
+def test_simplified_debt_matrix_cents_same_pair_multiple_expenses_aggregate() -> None:
+    """Two even splits on the same pair and payer: one consolidated direction."""
+    gid = ObjectId()
+    A, B = ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 30,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+        {
+            "type": "evenly",
+            "amount": 50,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+    ]
+    db = FakeDatabase(group_id=gid, member_user_ids=[A, B], expense_docs=expense_docs)
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    ia, ib = member_ids.index(str(A)), member_ids.index(str(B))
+    owe = 15 + 25
+    assert matrix[ia][ib] == owe
+    assert matrix[ib][ia] == 0
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
+
+
+def test_simplified_debt_matrix_cents_four_person_mesh() -> None:
+    """Two disjoint pairs and two payers; nets preserved, no cross edges between strangers."""
+    gid = ObjectId()
+    A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 100,
+            "participant_user_ids": [A, B],
+            "paid_by_user_id": B,
+        },
+        {
+            "type": "evenly",
+            "amount": 60,
+            "participant_user_ids": [C, D],
+            "paid_by_user_id": D,
+        },
+    ]
+    db = FakeDatabase(
+        group_id=gid,
+        member_user_ids=[A, B, C, D],
+        expense_docs=expense_docs,
+    )
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    ia, ib, ic, id_ = (member_ids.index(str(x)) for x in (A, B, C, D))
+    assert matrix[ia][ib] == 50
+    assert matrix[ic][id_] == 30
+    assert matrix[ia][ic] == matrix[ia][id_] == matrix[ib][ic] == 0
+    _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
 
 
 def test_simplified_debt_matrix_raises_when_group_missing() -> None:

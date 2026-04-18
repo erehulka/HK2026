@@ -143,9 +143,17 @@ def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
     arc ``(s, t)`` with capacity equal to that max flow. This never introduces a new creditor
     relationship beyond what residual arcs already imply; pairwise opposite debts are netted
     at the end (and once up front so circular gross IOUs start from a minimal edge set).
+
+    If every member's net balance is already zero (e.g. a directed cycle that nets out), no
+    settlement is required and the result is an all-zero matrix. (The iterative construction
+    is only meant for redistributing flow when nets are non-trivial; on pure circulations it
+    would otherwise drift away from conservation.)
     """
     n = len(gross)
     cap = _net_pairwise_matrix(gross)
+    if all(b == 0 for b in _balances_from_gross_matrix(cap)):
+        return [[0] * n for _ in range(n)]
+
     visited: set[tuple[int, int]] = set()
 
     while True:
