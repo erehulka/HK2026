@@ -219,6 +219,13 @@ def update_expense_item(
                 detail="item share amounts must sum to item amount",
             )
         update_doc["shares"] = shares
+    elif "amount" in patch:
+        existing_share_total = sum(share["amount"] for share in existing["shares"])
+        if existing_share_total != patch["amount"]:
+            raise HTTPException(
+                status_code=400,
+                detail="item share amounts must sum to item amount",
+            )
 
     after = db.items.find_one_and_update(
         {"_id": iid, "expenseId": eid},
