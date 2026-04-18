@@ -11,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 from app.deps import get_db
 from app.mongo_ids import parse_object_id
 from app.schemas.group import GroupOut, group_document_to_out
-from app.schemas.user import UserCreate, UserOut
+from app.schemas.user import UserCreate, UserOut, user_document_to_out
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -27,6 +27,7 @@ def create_user(body: UserCreate, db: Database = Depends(get_db)) -> UserOut:
     doc = {
         "display_name": body.display_name,
         "email": body.email,
+        "friend_ids": [],
         "created_at": created_at,
     }
     try:
@@ -40,8 +41,69 @@ def create_user(body: UserCreate, db: Database = Depends(get_db)) -> UserOut:
         id=str(result.inserted_id),
         display_name=body.display_name,
         email=body.email,
+        friends=[],
         created_at=created_at,
     )
+
+
+@router.post(
+    "/{user_id}/friends/{friend_id}",
+    response_model=UserOut,
+    summary="Add a friend",
+)
+def add_friend(
+    user_id: str,
+    friend_id: str,
+    db: Database = Depends(get_db),
+) -> UserOut:
+    uid = parse_object_id(user_id, field="user_id")
+    fid = parse_object_id(friend_id, field="friend_id")
+    if uid == fid:
+        raise HTTPException(status_code=400, detail="User cannot befriend themselves")
+
+    user = db.users.find_one({"_id": uid})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    friend = db.users.find_one({"_id": fid})
+    if friend is None:
+        raise HTTPException(status_code=404, detail="Friend user not found")
+
+    db.users.update_one({"_id": uid}, {"$addToSet": {"friend_ids": fid}})
+    db.users.update_one({"_id": fid}, {"$addToSet": {"friend_ids": uid}})
+    updated = db.users.find_one({"_id": uid})
+    if updated is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_document_to_out(updated)
+
+
+@router.delete(
+    "/{user_id}/friends/{friend_id}",
+    response_model=UserOut,
+    summary="Remove a friend",
+)
+def remove_friend(
+    user_id: str,
+    friend_id: str,
+    db: Database = Depends(get_db),
+) -> UserOut:
+    uid = parse_object_id(user_id, field="user_id")
+    fid = parse_object_id(friend_id, field="friend_id")
+    if uid == fid:
+        raise HTTPException(status_code=400, detail="User cannot unfriend themselves")
+
+    user = db.users.find_one({"_id": uid})
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    friend = db.users.find_one({"_id": fid})
+    if friend is None:
+        raise HTTPException(status_code=404, detail="Friend user not found")
+
+    db.users.update_one({"_id": uid}, {"$pull": {"friend_ids": fid}})
+    db.users.update_one({"_id": fid}, {"$pull": {"friend_ids": uid}})
+    updated = db.users.find_one({"_id": uid})
+    if updated is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_document_to_out(updated)
 
 
 @router.get(
