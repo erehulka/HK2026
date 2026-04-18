@@ -6,16 +6,18 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
-from pymongo import ReturnDocument
 from pymongo.database import Database
 
 from app.deps import get_db
 from app.mongo_ids import parse_object_id
 from app.schemas.expense import (
     ExpenseCreate,
+    ExpenseDetailOut,
+    ExpenseFrontendCreate,
     ExpenseOut,
     ExpenseSplitType,
     ExpenseUpdate,
+    expense_document_to_detail_out,
     expense_document_to_out,
 )
 
@@ -37,32 +39,16 @@ def _member_ids(db: Database, gid: ObjectId) -> set[ObjectId]:
     }
 
 
-def _parse_object_id_list(ids: list[str], *, field: str) -> list[ObjectId]:
-    return [parse_object_id(s, field=field) for s in ids]
-
-
-def _validate_expense_participants(
-    participant_ids: list[ObjectId],
-    payer_id: ObjectId,
+def _validate_membership(
+    user_id: ObjectId,
     members: set[ObjectId],
+    *,
+    field: str,
 ) -> None:
-    if not participant_ids:
+    if user_id not in members:
         raise HTTPException(
             status_code=400,
-            detail="At least one participant is required",
-        )
-    if len(set(participant_ids)) != len(participant_ids):
-        raise HTTPException(status_code=400, detail="Duplicate participants")
-    participant_set = set(participant_ids)
-    if payer_id not in participant_set:
-        raise HTTPException(
-            status_code=400,
-            detail="paid_by_user_id must be one of participant_user_ids",
-        )
-    if not participant_set <= members:
-        raise HTTPException(
-            status_code=400,
-            detail="All participants must be members of this group",
+            detail=f"{field} must be a member of this group",
         )
 
 
@@ -80,28 +66,129 @@ def create_expense(
     gid = parse_object_id(group_id, field="group_id")
     _require_group(db, gid)
     members = _member_ids(db, gid)
-    participant_oids = _parse_object_id_list(
-        body.participant_user_ids,
-        field="participant_user_ids",
-    )
-    payer_oid = parse_object_id(body.paid_by_user_id, field="paid_by_user_id")
-    _validate_expense_participants(participant_oids, payer_oid, members)
+    created_by_oid = parse_object_id(body.created_by, field="created_by")
+    paid_by_oid = parse_object_id(body.paid_by, field="paid_by")
+    _validate_membership(created_by_oid, members, field="created_by")
+    _validate_membership(paid_by_oid, members, field="paid_by")
+    participant_oids = [
+        parse_object_id(user_id, field="participants") for user_id in body.participants
+    ]
+    for participant_oid in participant_oids:
+        _validate_membership(participant_oid, members, field="participants")
+
     now = datetime.now(timezone.utc)
-    doc = {
-        "group_id": gid,
-        "amount": body.amount,
-        "participant_user_ids": participant_oids,
-        "paid_by_user_id": payer_oid,
-        "type": body.type.value,
-        "items": body.items,
-        "created_at": now,
-        "updated_at": now,
+    expense_doc = {
+        "groupId": gid,
+        "description": body.description,
+        "totalAmount": 0,
+        "createdBy": created_by_oid,
+        "paidBy": paid_by_oid,
+        "participantUserIds": participant_oids,
+        "splitType": body.split_type.value,
+        "createdAt": now,
+        "updatedAt": now,
+        "items": [],
     }
-    result = db.expenses.insert_one(doc)
-    doc["_id"] = result.inserted_id
-    return expense_document_to_out(doc)
+    result = db.expenses.insert_one(expense_doc)
+    expense_doc["_id"] = result.inserted_id
+    db.groups.update_one({"_id": gid}, {"$addToSet": {"expenseIds": expense_doc["_id"]}})
+    return expense_document_to_out(expense_doc)
 
 
+@router.post(
+    "/frontend",
+    response_model=ExpenseDetailOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an expense from the frontend payload",
+)
+def create_expense_from_frontend(
+    group_id: str,
+    body: ExpenseFrontendCreate,
+    db: Database = Depends(get_db),
+) -> ExpenseDetailOut:
+    gid = parse_object_id(group_id, field="group_id")
+    _require_group(db, gid)
+    members = _member_ids(db, gid)
+
+    paid_by_oid = parse_object_id(body.paid_by, field="paid_by")
+    _validate_membership(paid_by_oid, members, field="paid_by")
+    participant_oids = [
+        parse_object_id(user_id, field="participant_user_ids")
+        for user_id in body.participant_user_ids
+    ]
+    for participant_oid in participant_oids:
+        _validate_membership(participant_oid, members, field="participant_user_ids")
+
+    now = datetime.now(timezone.utc)
+    expense_doc = {
+        "groupId": gid,
+        "description": body.description,
+        "totalAmount": 0,
+        "createdBy": paid_by_oid,
+        "paidBy": paid_by_oid,
+        "participantUserIds": participant_oids,
+        "splitType": body.split_type.value,
+        "createdAt": now,
+        "updatedAt": now,
+        "items": [],
+    }
+
+    expense_id: ObjectId | None = None
+    inserted_item_ids: list[ObjectId] = []
+    try:
+        result = db.expenses.insert_one(expense_doc)
+        expense_id = result.inserted_id
+
+        item_docs = [
+            {
+                "expenseId": expense_id,
+                "description": item.description,
+                "amount": item.amount,
+            }
+            for item in body.items
+        ]
+        if item_docs:
+            insert_result = db.items.insert_many(item_docs)
+            inserted_item_ids = list(insert_result.inserted_ids)
+
+        total_amount = sum(item.amount for item in body.items)
+        expense_update_result = db.expenses.update_one(
+            {"_id": expense_id, "groupId": gid},
+            {
+                "$set": {
+                    "items": inserted_item_ids,
+                    "totalAmount": total_amount,
+                    "updatedAt": now,
+                }
+            },
+        )
+        if expense_update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Expense not found")
+
+        group_update_result = db.groups.update_one(
+            {"_id": gid},
+            {"$addToSet": {"expenseIds": expense_id}},
+        )
+        if group_update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        expense = db.expenses.find_one({"_id": expense_id, "groupId": gid})
+        items = list(db.items.find({"expenseId": expense_id}))
+        if expense is None:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        return expense_document_to_detail_out(expense, items)
+    except Exception:
+        if expense_id is not None:
+            try:
+                if inserted_item_ids:
+                    db.items.delete_many({"_id": {"$in": inserted_item_ids}})
+                else:
+                    db.items.delete_many({"expenseId": expense_id})
+                db.expenses.delete_one({"_id": expense_id, "groupId": gid})
+                db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": expense_id}})
+            except Exception:
+                pass
+        raise
 @router.delete(
     "/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -116,9 +203,32 @@ def delete_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    res = db.expenses.delete_one({"_id": eid, "group_id": gid})
-    if res.deleted_count == 0:
+    expense = db.expenses.find_one({"_id": eid, "groupId": gid}, {"_id": 1})
+    if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
+    db.items.delete_many({"expenseId": eid})
+    db.expenses.delete_one({"_id": eid, "groupId": gid})
+    db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": eid}})
+
+
+@router.get(
+    "/{expense_id}",
+    response_model=ExpenseDetailOut,
+    summary="Get an expense with its items",
+)
+def get_expense(
+    group_id: str,
+    expense_id: str,
+    db: Database = Depends(get_db),
+) -> ExpenseDetailOut:
+    gid = parse_object_id(group_id, field="group_id")
+    eid = parse_object_id(expense_id, field="expense_id")
+    _require_group(db, gid)
+    expense = db.expenses.find_one({"_id": eid, "groupId": gid})
+    if expense is None:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    items = list(db.items.find({"expenseId": eid}))
+    return expense_document_to_detail_out(expense, items)
 
 
 @router.patch(
@@ -135,7 +245,7 @@ def update_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    existing = db.expenses.find_one({"_id": eid, "group_id": gid})
+    existing = db.expenses.find_one({"_id": eid, "groupId": gid})
     if existing is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     patch = body.model_dump(exclude_unset=True, exclude_none=True)
@@ -143,37 +253,41 @@ def update_expense(
         raise HTTPException(status_code=400, detail="No fields to update")
 
     members = _member_ids(db, gid)
-    participant_oids = (
-        _parse_object_id_list(body.participant_user_ids, field="participant_user_ids")
-        if body.participant_user_ids is not None
-        else list(existing["participant_user_ids"])
-    )
-    payer_oid = (
-        parse_object_id(body.paid_by_user_id, field="paid_by_user_id")
-        if body.paid_by_user_id is not None
-        else existing["paid_by_user_id"]
-    )
-    _validate_expense_participants(participant_oids, payer_oid, members)
-
     now = datetime.now(timezone.utc)
-    update_doc: dict = {"updated_at": now}
-    if "amount" in patch:
-        update_doc["amount"] = patch["amount"]
-    if "participant_user_ids" in patch:
-        update_doc["participant_user_ids"] = participant_oids
-    if "paid_by_user_id" in patch:
-        update_doc["paid_by_user_id"] = payer_oid
-    if "type" in patch:
-        t = patch["type"]
-        update_doc["type"] = t.value if isinstance(t, ExpenseSplitType) else t
-    if "items" in patch:
-        update_doc["items"] = patch["items"]
+    update_doc: dict = {
+        "updatedAt": now,
+    }
+    if "description" in patch:
+        update_doc["description"] = patch["description"]
+    if "created_by" in patch:
+        created_by_oid = parse_object_id(patch["created_by"], field="created_by")
+        _validate_membership(created_by_oid, members, field="created_by")
+        update_doc["createdBy"] = created_by_oid
+    if "paid_by" in patch:
+        paid_by_oid = parse_object_id(patch["paid_by"], field="paid_by")
+        _validate_membership(paid_by_oid, members, field="paid_by")
+        update_doc["paidBy"] = paid_by_oid
+    if "participants" in patch:
+        participant_oids = [
+            parse_object_id(user_id, field="participants")
+            for user_id in patch["participants"]
+        ]
+        for participant_oid in participant_oids:
+            _validate_membership(participant_oid, members, field="participants")
+        update_doc["participantUserIds"] = participant_oids
+    if "split_type" in patch:
+        split_type = patch["split_type"]
+        update_doc["splitType"] = (
+            split_type.value if isinstance(split_type, ExpenseSplitType) else split_type
+        )
 
-    after = db.expenses.find_one_and_update(
-        {"_id": eid, "group_id": gid},
+    result = db.expenses.update_one(
+        {"_id": eid, "groupId": gid},
         {"$set": update_doc},
-        return_document=ReturnDocument.AFTER,
     )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    after = db.expenses.find_one({"_id": eid, "groupId": gid})
     if after is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     return expense_document_to_out(after)
