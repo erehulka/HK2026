@@ -18,6 +18,8 @@ poetry run uvicorn app.main:app --reload
 
 Then open `http://127.0.0.1:8000/`.
 
+API docs: `http://127.0.0.1:8000/docs`.
+
 ### Dependencies
 
 - Change versions in `backend/pyproject.toml`, then run `poetry lock` and `poetry install`.
