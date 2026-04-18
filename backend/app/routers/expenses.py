@@ -110,14 +110,14 @@ def create_expense_from_frontend(
     _require_group(db, gid)
     members = _member_ids(db, gid)
 
-    paid_by_oid = parse_object_id(body.paidBy, field="paidBy")
-    _validate_membership(paid_by_oid, members, field="paidBy")
+    paid_by_oid = parse_object_id(body.paid_by, field="paid_by")
+    _validate_membership(paid_by_oid, members, field="paid_by")
     participant_oids = [
-        parse_object_id(user_id, field="participantUserIds")
-        for user_id in body.participantUserIds
+        parse_object_id(user_id, field="participant_user_ids")
+        for user_id in body.participant_user_ids
     ]
     for participant_oid in participant_oids:
-        _validate_membership(participant_oid, members, field="participantUserIds")
+        _validate_membership(participant_oid, members, field="participant_user_ids")
 
     now = datetime.now(timezone.utc)
     expense_doc = {
@@ -127,7 +127,7 @@ def create_expense_from_frontend(
         "createdBy": paid_by_oid,
         "paidBy": paid_by_oid,
         "participantUserIds": participant_oids,
-        "splitType": body.splitType.value,
+        "splitType": body.split_type.value,
         "createdAt": now,
         "updatedAt": now,
         "items": [],

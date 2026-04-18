@@ -43,14 +43,19 @@ class UserOut(BaseModel):
     id: str
     display_name: str
     email: str
+    friends: list[str]
     created_at: datetime
 
 
 def user_document_to_out(doc: dict) -> UserOut:
     """Map a MongoDB user document to `UserOut`."""
+    friend_ids = doc.get("friend_ids")
+    if friend_ids is None:
+        friend_ids = doc.get("friendIds", [])
     return UserOut(
         id=str(doc["_id"]),
         display_name=doc["display_name"],
         email=doc["email"],
+        friends=[str(friend_id) for friend_id in friend_ids],
         created_at=doc["created_at"],
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.item import ItemCreate, ItemOut, _amount_from_mongo
 
@@ -49,14 +49,18 @@ class ExpenseCreate(BaseModel):
 class ExpenseFrontendCreate(BaseModel):
     """Body used by the frontend to create an expense and its items in one request."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     description: str = Field(..., min_length=1, max_length=5000)
-    paidBy: str = Field(..., description="User who paid for the expense")
-    participantUserIds: list[str] = Field(
+    paid_by: str = Field(..., alias="paidBy", description="User who paid for the expense")
+    participant_user_ids: list[str] = Field(
         ...,
+        alias="participantUserIds",
         min_length=1,
         description="Users participating in this expense",
     )
-    splitType: ExpenseSplitType = Field(
+    split_type: ExpenseSplitType = Field(
+        alias="splitType",
         default=ExpenseSplitType.EQUAL,
         description="How the expense is split",
     )
@@ -73,11 +77,11 @@ class ExpenseFrontendCreate(BaseModel):
             return v.strip()
         return v
 
-    @field_validator("participantUserIds")
+    @field_validator("participant_user_ids")
     @classmethod
     def unique_participants(cls, v: list[str]) -> list[str]:
         if len(set(v)) != len(v):
-            raise ValueError("participantUserIds must be unique")
+            raise ValueError("participant_user_ids must be unique")
         return v
 
 
