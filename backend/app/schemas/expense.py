@@ -7,7 +7,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.item import ItemOut, _amount_from_mongo
+from app.schemas.item import ItemCreate, ItemOut, _amount_from_mongo
 
 
 class ExpenseSplitType(str, Enum):
@@ -20,6 +20,7 @@ class ExpenseCreate(BaseModel):
 
     description: str = Field(..., min_length=1, max_length=5000)
     created_by: str = Field(..., description="User who created the expense")
+    paid_by: str = Field(..., description="User who paid for the expense")
     participants: list[str] = Field(
         ...,
         min_length=1,
@@ -45,11 +46,47 @@ class ExpenseCreate(BaseModel):
         return v
 
 
+class ExpenseFrontendCreate(BaseModel):
+    """Body used by the frontend to create an expense and its items in one request."""
+
+    description: str = Field(..., min_length=1, max_length=5000)
+    paidBy: str = Field(..., description="User who paid for the expense")
+    participantUserIds: list[str] = Field(
+        ...,
+        min_length=1,
+        description="Users participating in this expense",
+    )
+    splitType: ExpenseSplitType = Field(
+        default=ExpenseSplitType.EQUAL,
+        description="How the expense is split",
+    )
+    items: list[ItemCreate] = Field(
+        ...,
+        min_length=1,
+        description="Expense items to create",
+    )
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def strip_description(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.strip()
+        return v
+
+    @field_validator("participantUserIds")
+    @classmethod
+    def unique_participants(cls, v: list[str]) -> list[str]:
+        if len(set(v)) != len(v):
+            raise ValueError("participantUserIds must be unique")
+        return v
+
+
 class ExpenseUpdate(BaseModel):
     """Partial update for an expense (PATCH)."""
 
     description: str | None = Field(default=None, min_length=1, max_length=5000)
     created_by: str | None = None
+    paid_by: str | None = None
     participants: list[str] | None = Field(default=None, min_length=1)
     split_type: ExpenseSplitType | None = None
 
@@ -80,6 +117,7 @@ class ExpenseOut(BaseModel):
     description: str
     total_amount: int = Field(description="Total amount in euro cents (100 = €1.00)")
     created_by: str
+    paid_by: str
     participants: list[str]
     split_type: ExpenseSplitType
     items: list[str]
@@ -101,6 +139,7 @@ def expense_document_to_out(doc: dict) -> ExpenseOut:
         description=doc["description"],
         total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
         created_by=str(doc["createdBy"]),
+        paid_by=str(doc["paidBy"]),
         participants=[str(uid) for uid in doc.get("participantUserIds", [])],
         split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
         items=[str(item_id) for item_id in doc.get("items", [])],
@@ -119,6 +158,7 @@ def expense_document_to_detail_out(doc: dict, items: list[dict]) -> ExpenseDetai
         description=doc["description"],
         total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
         created_by=str(doc["createdBy"]),
+        paid_by=str(doc["paidBy"]),
         participants=[str(uid) for uid in doc.get("participantUserIds", [])],
         split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
         items=[item_document_to_out(item) for item in items],

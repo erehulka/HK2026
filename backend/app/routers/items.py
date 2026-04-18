@@ -44,17 +44,6 @@ def _validate_membership(
         )
 
 
-def _validate_item_payload(
-    item: ItemCreate,
-    members: set[ObjectId],
-) -> tuple[ObjectId, ObjectId]:
-    paid_by_oid = parse_object_id(item.paid_by, field="paid_by")
-    created_by_oid = parse_object_id(item.created_by, field="created_by")
-    _validate_membership(paid_by_oid, members, field="paid_by")
-    _validate_membership(created_by_oid, members, field="created_by")
-    return paid_by_oid, created_by_oid
-
-
 def _total_amount_from_items(item_docs: list[dict]) -> int:
     """Compute expense total as the sum of item amounts."""
     total = 0
@@ -105,18 +94,10 @@ def add_item_to_expense(
     expense = db.expenses.find_one({"_id": eid, "groupId": gid})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
-
-    members = _member_ids(db, gid)
-    paid_by_oid, item_created_by_oid = _validate_item_payload(body, members)
-    now = datetime.now(timezone.utc)
     item_doc = {
         "expenseId": eid,
         "description": body.description,
         "amount": body.amount,
-        "paidBy": paid_by_oid,
-        "createdBy": item_created_by_oid,
-        "createdAt": now,
-        "updatedAt": now,
     }
     result = db.items.insert_one(item_doc)
     item_doc["_id"] = result.inserted_id
@@ -152,21 +133,12 @@ def update_expense_item(
     if not patch:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    members = _member_ids(db, gid)
-    update_doc: dict = {"updatedAt": datetime.now(timezone.utc)}
+    update_doc: dict = {}
 
     if "description" in patch:
         update_doc["description"] = patch["description"]
     if "amount" in patch:
         update_doc["amount"] = patch["amount"]
-    if "paid_by" in patch:
-        paid_by_oid = parse_object_id(patch["paid_by"], field="paid_by")
-        _validate_membership(paid_by_oid, members, field="paid_by")
-        update_doc["paidBy"] = paid_by_oid
-    if "created_by" in patch:
-        created_by_oid = parse_object_id(patch["created_by"], field="created_by")
-        _validate_membership(created_by_oid, members, field="created_by")
-        update_doc["createdBy"] = created_by_oid
 
     after = db.items.find_one_and_update(
         {"_id": iid, "expenseId": eid},

@@ -13,6 +13,7 @@ from app.mongo_ids import parse_object_id
 from app.schemas.expense import (
     ExpenseCreate,
     ExpenseDetailOut,
+    ExpenseFrontendCreate,
     ExpenseOut,
     ExpenseSplitType,
     ExpenseUpdate,
@@ -66,7 +67,9 @@ def create_expense(
     _require_group(db, gid)
     members = _member_ids(db, gid)
     created_by_oid = parse_object_id(body.created_by, field="created_by")
+    paid_by_oid = parse_object_id(body.paid_by, field="paid_by")
     _validate_membership(created_by_oid, members, field="created_by")
+    _validate_membership(paid_by_oid, members, field="paid_by")
     participant_oids = [
         parse_object_id(user_id, field="participants") for user_id in body.participants
     ]
@@ -79,6 +82,7 @@ def create_expense(
         "description": body.description,
         "totalAmount": 0,
         "createdBy": created_by_oid,
+        "paidBy": paid_by_oid,
         "participantUserIds": participant_oids,
         "splitType": body.split_type.value,
         "createdAt": now,
@@ -89,6 +93,79 @@ def create_expense(
     expense_doc["_id"] = result.inserted_id
     db.groups.update_one({"_id": gid}, {"$addToSet": {"expenseIds": expense_doc["_id"]}})
     return expense_document_to_out(expense_doc)
+
+
+@router.post(
+    "/frontend",
+    response_model=ExpenseDetailOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an expense from the frontend payload",
+)
+def create_expense_from_frontend(
+    group_id: str,
+    body: ExpenseFrontendCreate,
+    db: Database = Depends(get_db),
+) -> ExpenseDetailOut:
+    gid = parse_object_id(group_id, field="group_id")
+    _require_group(db, gid)
+    members = _member_ids(db, gid)
+
+    paid_by_oid = parse_object_id(body.paidBy, field="paidBy")
+    _validate_membership(paid_by_oid, members, field="paidBy")
+    participant_oids = [
+        parse_object_id(user_id, field="participantUserIds")
+        for user_id in body.participantUserIds
+    ]
+    for participant_oid in participant_oids:
+        _validate_membership(participant_oid, members, field="participantUserIds")
+
+    now = datetime.now(timezone.utc)
+    expense_doc = {
+        "groupId": gid,
+        "description": body.description,
+        "totalAmount": 0,
+        "createdBy": paid_by_oid,
+        "paidBy": paid_by_oid,
+        "participantUserIds": participant_oids,
+        "splitType": body.splitType.value,
+        "createdAt": now,
+        "updatedAt": now,
+        "items": [],
+    }
+    result = db.expenses.insert_one(expense_doc)
+    expense_id = result.inserted_id
+
+    item_docs = [
+        {
+            "expenseId": expense_id,
+            "description": item.description,
+            "amount": item.amount,
+        }
+        for item in body.items
+    ]
+    inserted_item_ids: list[ObjectId] = []
+    if item_docs:
+        insert_result = db.items.insert_many(item_docs)
+        inserted_item_ids = list(insert_result.inserted_ids)
+
+    total_amount = sum(item.amount for item in body.items)
+    db.expenses.update_one(
+        {"_id": expense_id, "groupId": gid},
+        {
+            "$set": {
+                "items": inserted_item_ids,
+                "totalAmount": total_amount,
+                "updatedAt": now,
+            }
+        },
+    )
+    db.groups.update_one({"_id": gid}, {"$addToSet": {"expenseIds": expense_id}})
+
+    expense = db.expenses.find_one({"_id": expense_id, "groupId": gid})
+    items = list(db.items.find({"expenseId": expense_id}))
+    if expense is None:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return expense_document_to_detail_out(expense, items)
 
 
 @router.delete(
@@ -165,6 +242,10 @@ def update_expense(
         created_by_oid = parse_object_id(patch["created_by"], field="created_by")
         _validate_membership(created_by_oid, members, field="created_by")
         update_doc["createdBy"] = created_by_oid
+    if "paid_by" in patch:
+        paid_by_oid = parse_object_id(patch["paid_by"], field="paid_by")
+        _validate_membership(paid_by_oid, members, field="paid_by")
+        update_doc["paidBy"] = paid_by_oid
     if "participants" in patch:
         participant_oids = [
             parse_object_id(user_id, field="participants")

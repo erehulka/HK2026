@@ -39,8 +39,6 @@ class ItemCreate(BaseModel):
             description="Item amount in euro cents (100 = €1.00)",
         ),
     ]
-    paid_by: str = Field(..., description="User who paid this item")
-    created_by: str = Field(..., description="User who created this item")
 
     @field_validator("description", mode="before")
     @classmethod
@@ -68,8 +66,6 @@ class ItemUpdate(BaseModel):
             description="Item amount in euro cents (100 = €1.00)",
         ),
     ] = None
-    paid_by: str | None = None
-    created_by: str | None = None
 
     @field_validator("description", mode="before")
     @classmethod
@@ -92,24 +88,14 @@ class ItemOut(BaseModel):
     """Item returned to clients."""
 
     id: str
-    expense_id: str
     description: str
     amount: int
-    paid_by: str
-    created_at: datetime
-    updated_at: datetime
-    created_by: str
 
 
 def item_document_to_out(doc: dict) -> ItemOut:
     """Map a MongoDB item document to `ItemOut`."""
     return ItemOut(
         id=str(doc["_id"]),
-        expense_id=str(doc["expenseId"]),
         description=doc["description"],
         amount=_amount_from_mongo(doc["amount"], field="amount"),
-        paid_by=str(doc["paidBy"]),
-        created_at=doc["createdAt"],
-        updated_at=doc["updatedAt"],
-        created_by=str(doc["createdBy"]),
     )
