@@ -16,6 +16,7 @@ from app.debts.simplify import (
     _simplify_from_gross,
     simplified_debt_matrix_cents,
 )
+from app.schemas.expense import ExpenseSplitType
 
 
 @dataclass
@@ -30,6 +31,21 @@ class _FakeCollection:
         return self.find_one_result
 
     def find(self, query: dict, projection: Any = None) -> Iterator[dict]:
+        ors = query.get("$or")
+        if ors is not None:
+            gids: set[object] = set()
+            for branch in ors:
+                if not isinstance(branch, dict):
+                    continue
+                if "group_id" in branch:
+                    gids.add(branch["group_id"])
+                if "groupId" in branch:
+                    gids.add(branch["groupId"])
+            for row in self.find_rows:
+                rid = row.get("group_id", row.get("groupId"))
+                if rid in gids:
+                    yield row
+            return
         key = query[self.find_key]
         for row in self.find_rows:
             if row.get(self.find_key) == key:
@@ -110,13 +126,13 @@ def test_simplify_chain_collapses_through_zero_net_middle() -> None:
     mi = _sorted_member_index([A, B, C])
     expenses = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [B, C],
             "paid_by_user_id": C,
@@ -138,13 +154,13 @@ def test_balances_mutual_expenses_net_to_zero_matrix() -> None:
     mi = _sorted_member_index([A, C])
     expenses = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, C],
             "paid_by_user_id": C,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, C],
             "paid_by_user_id": A,
@@ -162,7 +178,7 @@ def test_balances_rejects_unknown_split_type() -> None:
     mi = _sorted_member_index([A])
     with pytest.raises(ValueError, match="Unsupported expense split type"):
         _balances_from_even_expenses(
-            [{"type": "custom", "amount": 10, "participant_user_ids": [A], "paid_by_user_id": A}],
+            [{"splitType": "custom", "amount": 10, "participant_user_ids": [A], "paid_by_user_id": A}],
             mi,
             1,
         )
@@ -175,7 +191,7 @@ def test_balances_rejects_participant_not_in_group() -> None:
         _balances_from_even_expenses(
             [
                 {
-                    "type": "evenly",
+                    "splitType": ExpenseSplitType.EQUAL.value,
                     "amount": 20,
                     "participant_user_ids": [A, B],
                     "paid_by_user_id": A,
@@ -191,13 +207,13 @@ def test_simplified_debt_matrix_cents_integration() -> None:
     A, B, C = ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [B, C],
             "paid_by_user_id": C,
@@ -223,19 +239,19 @@ def test_simplified_debt_matrix_cents_triangle_cycle_all_zero() -> None:
     A, B, C = ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [B, C],
             "paid_by_user_id": C,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [C, A],
             "paid_by_user_id": A,
@@ -254,7 +270,7 @@ def test_simplified_debt_matrix_cents_star_hub_all_owe_payer() -> None:
     A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 400,
             "participant_user_ids": [A, B, C, D],
             "paid_by_user_id": B,
@@ -281,13 +297,13 @@ def test_simplified_debt_matrix_cents_member_never_in_expenses_isolated() -> Non
     A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 20,
             "participant_user_ids": [B, C],
             "paid_by_user_id": C,
@@ -311,13 +327,13 @@ def test_simplified_debt_matrix_cents_same_pair_multiple_expenses_aggregate() ->
     A, B = ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 30,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 50,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
@@ -338,13 +354,13 @@ def test_simplified_debt_matrix_cents_four_person_mesh() -> None:
     A, B, C, D = ObjectId(), ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 100,
             "participant_user_ids": [A, B],
             "paid_by_user_id": B,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 60,
             "participant_user_ids": [C, D],
             "paid_by_user_id": D,
@@ -367,25 +383,25 @@ def test_simplified_debt_matrix_cents_complex() -> None:
     A, B, C, D, E, F = ObjectId(), ObjectId(), ObjectId(), ObjectId(), ObjectId(), ObjectId()
     expense_docs = [
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 100,
             "participant_user_ids": [B, C],
             "paid_by_user_id": A,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 300,
             "participant_user_ids": [A, B, C],
             "paid_by_user_id": A,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 100,
             "participant_user_ids": [B, C],
             "paid_by_user_id": C,
         },
         {
-            "type": "evenly",
+            "splitType": ExpenseSplitType.EQUAL.value,
             "amount": 90,
             "participant_user_ids": [E, D],
             "paid_by_user_id": E,

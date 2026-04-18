@@ -93,7 +93,7 @@ def get_simplified_group_debts(
     db: Database = Depends(get_db),
 ) -> SimplifiedGroupDebtsOut:
     """
-    Return the simplified settlement matrix from all **evenly** split expenses in the group.
+    Return the simplified settlement matrix from all **Equal** split expenses in the group.
 
     Rows/columns follow ``member_ids`` (lexicographically sorted user id strings). Amounts
     are euro cents. Unsupported expense types or invalid participant data yield HTTP 422.

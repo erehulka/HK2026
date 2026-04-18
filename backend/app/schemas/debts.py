@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class SimplifiedGroupDebtsOut(BaseModel):
     """
-    Pairwise simplified debts for a group (evenly-split expenses only).
+    Pairwise simplified debts for a group (Equal-split expenses only).
 
     ``member_ids`` and ``matrix`` share the same ordering: ``matrix[i][j]`` is how many
     euro cents member ``member_ids[i]`` owes member ``member_ids[j]`` (zero if no debt).
