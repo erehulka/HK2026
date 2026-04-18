@@ -46,14 +46,29 @@ from __future__ import annotations
 import base64
 import json
 import math
+import os
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 from mistralai import Mistral  # pip install mistralai
-from mistral_api import mistral_api_key
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(_BACKEND_ROOT / ".env")
+
+
+def _require_mistral_api_key() -> str:
+    key = os.environ.get("MISTRAL_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError(
+            "MISTRAL_API_KEY is not set. Add it to `.env` in the backend folder "
+            "(see `.env.example`) or export it in your environment."
+        )
+    return key
+
 
 # ── constants ────────────────────────────────────────────────────────────────
 
@@ -160,7 +175,7 @@ class ProcessResult:
         if not self.ok or self.data is None:
             raise RuntimeError("Cannot interpret labels on a failed ProcessResult.")
 
-        client = Mistral(api_key=mistral_api_key)
+        client = Mistral(api_key=_require_mistral_api_key())
         items = self.data.items
 
         by_language: dict[str, list[int]] = {}
@@ -252,7 +267,7 @@ index numbers (do not renumber them):
         if not self.ok or self.data is None:
             raise RuntimeError("Cannot translate on a failed ProcessResult.")
 
-        client = Mistral(api_key=mistral_api_key)
+        client = Mistral(api_key=_require_mistral_api_key())
         items = self.data.items
 
         if interpreted is not None:
@@ -521,7 +536,7 @@ def process_receipt(image_path: str | Path,
     except ValueError as exc:
         return ProcessResult(ok=False, reason=str(exc))
 
-    client = Mistral(api_key=mistral_api_key)   # reads MISTRAL_API_KEY from environment
+    client = Mistral(api_key=_require_mistral_api_key())
     b64 = _encode_image(image_path)
 
     # Steps 1 & 2 — detection + quality gate
