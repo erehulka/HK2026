@@ -1,7 +1,10 @@
 export type ReceiptUploadResult = {
   receiptId: string;
-  extractedPaymentName: string;
-  extractedAmount: number;
+  extractedReceiptName: string;
+  items: Array<{
+    name: string;
+    price: number;
+  }>;
 };
 
 export async function mockUploadReceipt(
@@ -13,7 +16,12 @@ export async function mockUploadReceipt(
 
   return {
     receiptId: `r-${groupId}-${uriTail}-${Date.now()}`,
-    extractedPaymentName: "Receipt purchase",
-    extractedAmount: 42.5,
+    extractedReceiptName: "Grocery store receipt",
+    items: [
+      { name: "Bananas", price: 3.2 },
+      { name: "Milk", price: 2.9 },
+      { name: "Bread", price: 1.8 },
+      { name: "Pasta", price: 4.6 },
+    ],
   };
 }

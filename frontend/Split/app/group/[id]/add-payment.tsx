@@ -18,15 +18,32 @@ import {
   updatePayment,
 } from "@/constants/mock-payments";
 import { CURRENT_USER, User } from "@/constants/mock-user";
+import {
+  countRemainingDraftReceiptItems,
+  markDraftReceiptItemsAsAdded,
+} from "@/constants/mock-receipts";
 
 const SPLIT_METHODS: SplitMethod[] = ["equal", "percentage", "exact"];
 
 type DropdownKey = "paidBy" | "splitBetween" | null;
 
 export default function AddPaymentScreen() {
-  const { id: groupId, paymentId } = useLocalSearchParams<{
+  const {
+    id: groupId,
+    paymentId,
+    prefillName,
+    prefillAmount,
+    sourceReceiptId,
+    sourceReceiptItemIds,
+    returnToGroupIfReceiptDone,
+  } = useLocalSearchParams<{
     id: string;
     paymentId?: string;
+    prefillName?: string;
+    prefillAmount?: string;
+    sourceReceiptId?: string;
+    sourceReceiptItemIds?: string;
+    returnToGroupIfReceiptDone?: string;
   }>();
 
   const members = useMemo<User[]>(() => [CURRENT_USER, ...MOCK_FRIENDS], []);
@@ -43,9 +60,9 @@ export default function AddPaymentScreen() {
     return matchByName?.id ?? CURRENT_USER.id;
   })();
 
-  const [name, setName] = useState(existingPayment?.name ?? "");
+  const [name, setName] = useState(existingPayment?.name ?? prefillName ?? "");
   const [amount, setAmount] = useState(
-    existingPayment ? String(existingPayment.amount) : ""
+    existingPayment ? String(existingPayment.amount) : prefillAmount ?? ""
   );
   const [paidById, setPaidById] = useState<string>(initialPaidById);
   const [owesIds, setOwesIds] = useState<string[]>(
@@ -94,6 +111,17 @@ export default function AddPaymentScreen() {
           .filter(Boolean)
           .join(", ");
 
+  const sourceItemIds = useMemo(
+    () =>
+      sourceReceiptItemIds
+        ? sourceReceiptItemIds
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : [],
+    [sourceReceiptItemIds]
+  );
+
   const handleSave = () => {
     const patch: Partial<Payment> = {
       name: trimmedName,
@@ -119,6 +147,17 @@ export default function AddPaymentScreen() {
         splitMethod,
         splitValues,
       });
+
+      if (sourceReceiptId && sourceItemIds.length > 0) {
+        markDraftReceiptItemsAsAdded(groupId, sourceReceiptId, sourceItemIds);
+        if (returnToGroupIfReceiptDone === "1") {
+          const remaining = countRemainingDraftReceiptItems(groupId, sourceReceiptId);
+          if (remaining === 0) {
+            router.replace(`/group/${groupId}`);
+            return;
+          }
+        }
+      }
     }
 
     router.back();
