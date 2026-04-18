@@ -1,3 +1,3 @@
-from . import expenses, groups, users
+from . import expenses, groups, items, users
 
-__all__ = ["expenses", "groups", "users"]
+__all__ = ["expenses", "groups", "items", "users"]

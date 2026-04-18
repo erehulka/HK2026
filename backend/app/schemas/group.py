@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
+
+if TYPE_CHECKING:
+    from app.schemas.expense import ExpenseOut
 
 
 class GroupCreate(BaseModel):
@@ -43,7 +47,14 @@ class GroupOut(BaseModel):
     id: str
     name: str
     description: str
+    expenses: list[str]
     created_at: datetime
+
+
+class GroupDetailOut(GroupOut):
+    """Group returned with populated expense documents."""
+
+    expenses: list["ExpenseOut"]
 
 
 def group_document_to_out(doc: dict) -> GroupOut:
@@ -52,5 +63,19 @@ def group_document_to_out(doc: dict) -> GroupOut:
         id=str(doc["_id"]),
         name=doc["name"],
         description=doc["description"],
+        expenses=[str(expense_id) for expense_id in doc.get("expenseIds", [])],
+        created_at=doc["created_at"],
+    )
+
+
+def group_document_to_detail_out(doc: dict, expenses: list[dict]) -> GroupDetailOut:
+    """Map a MongoDB group document and its expenses to `GroupDetailOut`."""
+    from app.schemas.expense import expense_document_to_out
+
+    return GroupDetailOut(
+        id=str(doc["_id"]),
+        name=doc["name"],
+        description=doc["description"],
+        expenses=[expense_document_to_out(expense) for expense in expenses],
         created_at=doc["created_at"],
     )
