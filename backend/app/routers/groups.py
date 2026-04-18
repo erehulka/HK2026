@@ -31,7 +31,7 @@ def create_group(body: GroupCreate, db: Database = Depends(get_db)) -> GroupOut:
         "name": body.name,
         "description": body.description,
         "created_at": created_at,
-        "expenseIds": [],
+        "expense_ids": [],
     }
     result = db.groups.insert_one(doc)
     return GroupOut(
@@ -53,9 +53,9 @@ def get_group(group_id: str, db: Database = Depends(get_db)) -> GroupDetailOut:
     group = db.groups.find_one({"_id": gid})
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    expense_ids = group.get("expenseIds", [])
+    expense_ids = group.get("expense_ids", [])
     expenses = (
-        list(db.expenses.find({"_id": {"$in": expense_ids}, "groupId": gid}))
+        list(db.expenses.find({"_id": {"$in": expense_ids}, "group_id": gid}))
         if expense_ids
         else []
     )

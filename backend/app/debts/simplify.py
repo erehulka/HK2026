@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Union
 from bson import ObjectId
 
 from app.mongo_ids import parse_object_id
-from app.schemas.expense import ExpenseSplitType, _mongo_list, _mongo_value, read_stored_expense_amount_cents
+from app.schemas.expense import ExpenseSplitType, read_stored_expense_amount_cents
 from app.schemas.item import _amount_from_mongo
 
 if TYPE_CHECKING:
@@ -25,20 +25,16 @@ GroupId = Union[str, ObjectId]
 
 
 def _expense_total_amount_cents(doc: dict) -> int:
-    """Total in euro cents: tests use ``amount``; persisted expenses use ``totalAmount``."""
+    """Total in euro cents: tests use ``amount``; persisted expenses use ``total_amount``."""
     if "amount" in doc:
         return read_stored_expense_amount_cents(doc["amount"])
-    raw = _mongo_value(doc, snake_key="total_amount", camel_key="totalAmount")
+    raw = doc["total_amount"]
     return _amount_from_mongo(raw, field="total_amount")
 
 
 def _split_type_from_expense_doc(doc: dict) -> ExpenseSplitType:
-    """Resolve split type from Mongo ``splitType`` / ``split_type``, else optional legacy ``type``."""
-    raw: object | None = None
-    if "split_type" in doc or "splitType" in doc:
-        raw = _mongo_value(doc, snake_key="split_type", camel_key="splitType")
-    if raw is None:
-        raw = doc.get("type")
+    """Resolve split type from Mongo ``split_type``."""
+    raw = doc.get("split_type")
     if raw is None:
         return ExpenseSplitType.EQUAL
     if isinstance(raw, ExpenseSplitType):
@@ -80,14 +76,8 @@ def _gross_matrix_from_even_expenses(
             msg = f"Unsupported expense split type: {split.value!r}"
             raise ValueError(msg)
         total = _expense_total_amount_cents(doc)
-        participants: list = list(
-            _mongo_list(doc, snake_key="participant_user_ids", camel_key="participantUserIds")
-        )
-        payer_oid = (
-            doc["paid_by_user_id"]
-            if "paid_by_user_id" in doc
-            else _mongo_value(doc, snake_key="paid_by", camel_key="paidBy")
-        )
+        participants: list = list(doc.get("participant_user_ids", []))
+        payer_oid = doc["paid_by"]
         payer_id = str(payer_oid)
         if payer_id not in member_index:
             msg = f"Payer {payer_id} is not a member of this group"
@@ -200,7 +190,7 @@ def simplified_debt_matrix_cents(
     n = len(member_ids)
     member_index = {uid: i for i, uid in enumerate(member_ids)}
 
-    expenses = list(db.expenses.find({"$or": [{"group_id": gid}, {"groupId": gid}]}))
+    expenses = list(db.expenses.find({"group_id": gid}))
     gross = _gross_matrix_from_even_expenses(expenses, member_index, n)
     matrix = _simplify_from_gross(gross)
     return member_ids, matrix

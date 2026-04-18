@@ -78,20 +78,20 @@ def create_expense(
 
     now = datetime.now(timezone.utc)
     expense_doc = {
-        "groupId": gid,
+        "group_id": gid,
         "description": body.description,
-        "totalAmount": 0,
-        "createdBy": created_by_oid,
-        "paidBy": paid_by_oid,
-        "participantUserIds": participant_oids,
-        "splitType": body.split_type.value,
-        "createdAt": now,
-        "updatedAt": now,
+        "total_amount": 0,
+        "created_by": created_by_oid,
+        "paid_by": paid_by_oid,
+        "participant_user_ids": participant_oids,
+        "split_type": body.split_type.value,
+        "created_at": now,
+        "updated_at": now,
         "items": [],
     }
     result = db.expenses.insert_one(expense_doc)
     expense_doc["_id"] = result.inserted_id
-    db.groups.update_one({"_id": gid}, {"$addToSet": {"expenseIds": expense_doc["_id"]}})
+    db.groups.update_one({"_id": gid}, {"$addToSet": {"expense_ids": expense_doc["_id"]}})
     return expense_document_to_out(expense_doc)
 
 
@@ -121,15 +121,15 @@ def create_expense_from_frontend(
 
     now = datetime.now(timezone.utc)
     expense_doc = {
-        "groupId": gid,
+        "group_id": gid,
         "description": body.description,
-        "totalAmount": 0,
-        "createdBy": paid_by_oid,
-        "paidBy": paid_by_oid,
-        "participantUserIds": participant_oids,
-        "splitType": body.split_type.value,
-        "createdAt": now,
-        "updatedAt": now,
+        "total_amount": 0,
+        "created_by": paid_by_oid,
+        "paid_by": paid_by_oid,
+        "participant_user_ids": participant_oids,
+        "split_type": body.split_type.value,
+        "created_at": now,
+        "updated_at": now,
         "items": [],
     }
 
@@ -141,7 +141,7 @@ def create_expense_from_frontend(
 
         item_docs = [
             {
-                "expenseId": expense_id,
+                "expense_id": expense_id,
                 "description": item.description,
                 "amount": item.amount,
             }
@@ -153,12 +153,12 @@ def create_expense_from_frontend(
 
         total_amount = sum(item.amount for item in body.items)
         expense_update_result = db.expenses.update_one(
-            {"_id": expense_id, "groupId": gid},
+            {"_id": expense_id, "group_id": gid},
             {
                 "$set": {
                     "items": inserted_item_ids,
-                    "totalAmount": total_amount,
-                    "updatedAt": now,
+                    "total_amount": total_amount,
+                    "updated_at": now,
                 }
             },
         )
@@ -167,13 +167,13 @@ def create_expense_from_frontend(
 
         group_update_result = db.groups.update_one(
             {"_id": gid},
-            {"$addToSet": {"expenseIds": expense_id}},
+            {"$addToSet": {"expense_ids": expense_id}},
         )
         if group_update_result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        expense = db.expenses.find_one({"_id": expense_id, "groupId": gid})
-        items = list(db.items.find({"expenseId": expense_id}))
+        expense = db.expenses.find_one({"_id": expense_id, "group_id": gid})
+        items = list(db.items.find({"expense_id": expense_id}))
         if expense is None:
             raise HTTPException(status_code=404, detail="Expense not found")
         return expense_document_to_detail_out(expense, items)
@@ -183,9 +183,9 @@ def create_expense_from_frontend(
                 if inserted_item_ids:
                     db.items.delete_many({"_id": {"$in": inserted_item_ids}})
                 else:
-                    db.items.delete_many({"expenseId": expense_id})
-                db.expenses.delete_one({"_id": expense_id, "groupId": gid})
-                db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": expense_id}})
+                    db.items.delete_many({"expense_id": expense_id})
+                db.expenses.delete_one({"_id": expense_id, "group_id": gid})
+                db.groups.update_one({"_id": gid}, {"$pull": {"expense_ids": expense_id}})
             except Exception:
                 pass
         raise
@@ -203,12 +203,12 @@ def delete_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    expense = db.expenses.find_one({"_id": eid, "groupId": gid}, {"_id": 1})
+    expense = db.expenses.find_one({"_id": eid, "group_id": gid}, {"_id": 1})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
-    db.items.delete_many({"expenseId": eid})
-    db.expenses.delete_one({"_id": eid, "groupId": gid})
-    db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": eid}})
+    db.items.delete_many({"expense_id": eid})
+    db.expenses.delete_one({"_id": eid, "group_id": gid})
+    db.groups.update_one({"_id": gid}, {"$pull": {"expense_ids": eid}})
 
 
 @router.get(
@@ -224,10 +224,10 @@ def get_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    expense = db.expenses.find_one({"_id": eid, "groupId": gid})
+    expense = db.expenses.find_one({"_id": eid, "group_id": gid})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
-    items = list(db.items.find({"expenseId": eid}))
+    items = list(db.items.find({"expense_id": eid}))
     return expense_document_to_detail_out(expense, items)
 
 
@@ -245,7 +245,7 @@ def update_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    existing = db.expenses.find_one({"_id": eid, "groupId": gid})
+    existing = db.expenses.find_one({"_id": eid, "group_id": gid})
     if existing is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     patch = body.model_dump(exclude_unset=True, exclude_none=True)
@@ -255,18 +255,18 @@ def update_expense(
     members = _member_ids(db, gid)
     now = datetime.now(timezone.utc)
     update_doc: dict = {
-        "updatedAt": now,
+        "updated_at": now,
     }
     if "description" in patch:
         update_doc["description"] = patch["description"]
     if "created_by" in patch:
         created_by_oid = parse_object_id(patch["created_by"], field="created_by")
         _validate_membership(created_by_oid, members, field="created_by")
-        update_doc["createdBy"] = created_by_oid
+        update_doc["created_by"] = created_by_oid
     if "paid_by" in patch:
         paid_by_oid = parse_object_id(patch["paid_by"], field="paid_by")
         _validate_membership(paid_by_oid, members, field="paid_by")
-        update_doc["paidBy"] = paid_by_oid
+        update_doc["paid_by"] = paid_by_oid
     if "participants" in patch:
         participant_oids = [
             parse_object_id(user_id, field="participants")
@@ -274,20 +274,20 @@ def update_expense(
         ]
         for participant_oid in participant_oids:
             _validate_membership(participant_oid, members, field="participants")
-        update_doc["participantUserIds"] = participant_oids
+        update_doc["participant_user_ids"] = participant_oids
     if "split_type" in patch:
         split_type = patch["split_type"]
-        update_doc["splitType"] = (
+        update_doc["split_type"] = (
             split_type.value if isinstance(split_type, ExpenseSplitType) else split_type
         )
 
     result = db.expenses.update_one(
-        {"_id": eid, "groupId": gid},
+        {"_id": eid, "group_id": gid},
         {"$set": update_doc},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Expense not found")
-    after = db.expenses.find_one({"_id": eid, "groupId": gid})
+    after = db.expenses.find_one({"_id": eid, "group_id": gid})
     if after is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     return expense_document_to_out(after)
