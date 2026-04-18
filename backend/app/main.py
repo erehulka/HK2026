@@ -13,7 +13,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="HK2026 Backend", lifespan=lifespan)
+app = FastAPI(
+    title="HK2026 Backend",
+    lifespan=lifespan,
+    servers=[
+        {"url": "http://127.0.0.1:8000", "description": "Local development"},
+    ],
+)
 app.include_router(groups.router)
 app.include_router(users.router)
 app.include_router(expenses.router)
