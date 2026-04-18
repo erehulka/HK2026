@@ -1,9 +1,4 @@
-"""Tests for ``app.debts.simplify`` (equal-split balances + greedy settlement matrix).
-
-Net-balance settlement is equivalent to repeatedly cancelling circulation on a *gross*
-IOU graph, but operating on aggregated balances avoids building that graph and is
-O(people + expenses) with at most ``n - 1`` non-zero payment arcs.
-"""
+"""Tests for ``app.debts.simplify`` (equal-split gross IOUs + Splitwise-style max-flow simplification)."""
 
 from __future__ import annotations
 
@@ -15,8 +10,10 @@ from bson import ObjectId
 
 from app.debts.simplify import (
     _balances_from_even_expenses,
+    _balances_from_gross_matrix,
     _equal_shares_cents,
-    _greedy_simplify_to_matrix,
+    _gross_matrix_from_even_expenses,
+    _splitwise_simplify_from_gross,
     simplified_debt_matrix_cents,
 )
 
@@ -85,8 +82,8 @@ def test_equal_shares_cents_rejects_nonpositive_n() -> None:
         _equal_shares_cents(10, 0)
 
 
-def test_balances_chain_compresses_via_greedy() -> None:
-    """A→B and B→C gross flows net to A owing C when B is balanced."""
+def test_splitwise_chain_keeps_only_existing_edges() -> None:
+    """A→B and B→C in gross graph: simplification does not introduce A→C."""
     A, B, C = ObjectId(), ObjectId(), ObjectId()
     mi = _sorted_member_index([A, B, C])
     expenses = [
@@ -103,12 +100,14 @@ def test_balances_chain_compresses_via_greedy() -> None:
             "paid_by_user_id": C,
         },
     ]
-    bal = _balances_from_even_expenses(expenses, mi, 3)
-    mat = _greedy_simplify_to_matrix(bal)
-    ia, ic = mi[str(A)], mi[str(C)]
-    assert bal[ia] == -10 and bal[ic] == 10 and bal[mi[str(B)]] == 0
-    assert mat[ia][ic] == 10
-    assert sum(sum(row) for row in mat) == 10
+    gross = _gross_matrix_from_even_expenses(expenses, mi, 3)
+    bal = _balances_from_gross_matrix(gross)
+    mat = _splitwise_simplify_from_gross(gross)
+    ia, ib, ic = mi[str(A)], mi[str(B)], mi[str(C)]
+    assert bal[ia] == -10 and bal[ic] == 10 and bal[ib] == 0
+    assert mat[ia][ib] == 10 and mat[ib][ic] == 10
+    assert mat[ia][ic] == 0
+    assert sum(sum(row) for row in mat) == 20
 
 
 def test_balances_mutual_expenses_net_to_zero_matrix() -> None:
@@ -129,8 +128,9 @@ def test_balances_mutual_expenses_net_to_zero_matrix() -> None:
             "paid_by_user_id": A,
         },
     ]
-    bal = _balances_from_even_expenses(expenses, mi, 2)
-    mat = _greedy_simplify_to_matrix(bal)
+    gross = _gross_matrix_from_even_expenses(expenses, mi, 2)
+    bal = _balances_from_gross_matrix(gross)
+    mat = _splitwise_simplify_from_gross(gross)
     assert bal == [0, 0]
     assert mat == [[0, 0], [0, 0]]
 
@@ -187,9 +187,10 @@ def test_simplified_debt_matrix_cents_integration() -> None:
     )
     member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
     assert member_ids == sorted([str(A), str(B), str(C)])
-    ia, ic = member_ids.index(str(A)), member_ids.index(str(C))
-    assert matrix[ia][ic] == 10
-    assert sum(sum(row) for row in matrix) == 10
+    ia, ib, ic = member_ids.index(str(A)), member_ids.index(str(B)), member_ids.index(str(C))
+    assert matrix[ia][ib] == 10 and matrix[ib][ic] == 10
+    assert matrix[ia][ic] == 0
+    assert sum(sum(row) for row in matrix) == 20
 
 
 def test_simplified_debt_matrix_raises_when_group_missing() -> None:
@@ -199,11 +200,16 @@ def test_simplified_debt_matrix_raises_when_group_missing() -> None:
         simplified_debt_matrix_cents(str(gid), db)
 
 
-def test_greedy_matrix_preserves_net_balances() -> None:
-    balances = [-7, 3, 4]
-    mat = _greedy_simplify_to_matrix(balances)
-    n = len(balances)
+def test_splitwise_matrix_preserves_net_balances_from_gross() -> None:
+    gross = [
+        [0, 3, 4],
+        [0, 0, 0],
+        [0, 0, 0],
+    ]
+    want = _balances_from_gross_matrix(gross)
+    mat = _splitwise_simplify_from_gross(gross)
+    n = len(want)
     for i in range(n):
         incoming = sum(mat[j][i] for j in range(n))
         outgoing = sum(mat[i][j] for j in range(n))
-        assert incoming - outgoing == balances[i]
+        assert incoming - outgoing == want[i]
