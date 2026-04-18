@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,10 +10,9 @@ import {
 } from "react-native";
 
 import { InviteFriends } from "@/components/invite-friends";
-import { MOCK_FRIENDS } from "@/constants/mock-friends";
+import { addGroup, GroupType } from "@/constants/mock-groups";
 
-const GROUP_TYPES = ["basic", "trip", "household"] as const;
-type GroupType = (typeof GROUP_TYPES)[number];
+const GROUP_TYPES: GroupType[] = ["basic", "trip", "household"];
 
 export default function CreateGroupScreen() {
   const [groupName, setGroupName] = useState("");
@@ -31,19 +29,14 @@ export default function CreateGroupScreen() {
   };
 
   const handleConfirm = () => {
-    const invitedNames = MOCK_FRIENDS.filter((f) =>
-      selectedFriendIds.includes(f.id)
-    )
-      .map((f) => f.name)
-      .join(", ");
-
-    Alert.alert(
-      "Group ready",
-      `Name: ${trimmedName}\nType: ${groupType}\nInvited: ${
-        invitedNames || "none"
-      }`,
-      [{ text: "OK", onPress: () => router.back() }]
-    );
+    const newId = `g${Date.now()}`;
+    addGroup({
+      id: newId,
+      name: trimmedName,
+      type: groupType,
+      balance: 0,
+    });
+    router.replace(`/group/${newId}`);
   };
 
   return (

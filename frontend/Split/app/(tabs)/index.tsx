@@ -1,18 +1,18 @@
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-type Group = {
-  id: string;
-  name: string;
-};
-
-const MOCK_GROUPS: Group[] = [
-  { id: "g1", name: "Family Budget" },
-  { id: "g2", name: "Vacation Planning" },
-  { id: "g3", name: "Team Lunches" },
-];
+import { Group, MOCK_GROUPS } from "@/constants/mock-groups";
 
 export default function HomeScreen() {
+  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+
+  useFocusEffect(
+    useCallback(() => {
+      setGroups([...MOCK_GROUPS]);
+    }, [])
+  );
+
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
@@ -23,15 +23,19 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Existing Groups</Text>
-          {MOCK_GROUPS.length === 0 ? (
+          {groups.length === 0 ? (
             <Text style={styles.emptyState}>
               No groups exist at the moment.
             </Text>
           ) : (
-            MOCK_GROUPS.map((group) => (
-              <View key={group.id} style={styles.groupCard}>
+            groups.map((group) => (
+              <Pressable
+                key={group.id}
+                onPress={() => router.push(`/group/${group.id}`)}
+                style={styles.groupCard}
+              >
                 <Text style={styles.groupName}>{group.name}</Text>
-              </View>
+              </Pressable>
             ))
           )}
         </View>
