@@ -132,42 +132,63 @@ def create_expense_from_frontend(
         "updatedAt": now,
         "items": [],
     }
-    result = db.expenses.insert_one(expense_doc)
-    expense_id = result.inserted_id
 
-    item_docs = [
-        {
-            "expenseId": expense_id,
-            "description": item.description,
-            "amount": item.amount,
-        }
-        for item in body.items
-    ]
+    expense_id: ObjectId | None = None
     inserted_item_ids: list[ObjectId] = []
-    if item_docs:
-        insert_result = db.items.insert_many(item_docs)
-        inserted_item_ids = list(insert_result.inserted_ids)
+    try:
+        result = db.expenses.insert_one(expense_doc)
+        expense_id = result.inserted_id
 
-    total_amount = sum(item.amount for item in body.items)
-    db.expenses.update_one(
-        {"_id": expense_id, "groupId": gid},
-        {
-            "$set": {
-                "items": inserted_item_ids,
-                "totalAmount": total_amount,
-                "updatedAt": now,
+        item_docs = [
+            {
+                "expenseId": expense_id,
+                "description": item.description,
+                "amount": item.amount,
             }
-        },
-    )
-    db.groups.update_one({"_id": gid}, {"$addToSet": {"expenseIds": expense_id}})
+            for item in body.items
+        ]
+        if item_docs:
+            insert_result = db.items.insert_many(item_docs)
+            inserted_item_ids = list(insert_result.inserted_ids)
 
-    expense = db.expenses.find_one({"_id": expense_id, "groupId": gid})
-    items = list(db.items.find({"expenseId": expense_id}))
-    if expense is None:
-        raise HTTPException(status_code=404, detail="Expense not found")
-    return expense_document_to_detail_out(expense, items)
+        total_amount = sum(item.amount for item in body.items)
+        expense_update_result = db.expenses.update_one(
+            {"_id": expense_id, "groupId": gid},
+            {
+                "$set": {
+                    "items": inserted_item_ids,
+                    "totalAmount": total_amount,
+                    "updatedAt": now,
+                }
+            },
+        )
+        if expense_update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Expense not found")
 
+        group_update_result = db.groups.update_one(
+            {"_id": gid},
+            {"$addToSet": {"expenseIds": expense_id}},
+        )
+        if group_update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Group not found")
 
+        expense = db.expenses.find_one({"_id": expense_id, "groupId": gid})
+        items = list(db.items.find({"expenseId": expense_id}))
+        if expense is None:
+            raise HTTPException(status_code=404, detail="Expense not found")
+        return expense_document_to_detail_out(expense, items)
+    except Exception:
+        if expense_id is not None:
+            try:
+                if inserted_item_ids:
+                    db.items.delete_many({"_id": {"$in": inserted_item_ids}})
+                else:
+                    db.items.delete_many({"expenseId": expense_id})
+                db.expenses.delete_one({"_id": expense_id, "groupId": gid})
+                db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": expense_id}})
+            except Exception:
+                pass
+        raise
 @router.delete(
     "/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
