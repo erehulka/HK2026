@@ -23,8 +23,6 @@ class ReceiptProcessedOut(BaseModel):
     """Structured receipt returned by `POST /receipts/process` on success."""
 
     summary_label: str = Field(description="Short human-readable receipt category")
-    merchant_name: str = Field(description="Merchant or shop name if present")
-    merchant_address: str = Field(description="Merchant address if present")
     date: str = Field(description="Purchase date (often YYYY-MM-DD)")
     time: str = Field(description="Purchase time if present")
     items: list[ReceiptLineItemOut] = Field(description="Parsed line items")

@@ -64,8 +64,6 @@ class LineItem:
 @dataclass
 class ReceiptData:
     summary_label: str
-    merchant_name: str
-    merchant_address: str
     date: str
     time: str
     items: list[LineItem]
@@ -549,8 +547,6 @@ Target JSON schema:
 
 {
   "summary_label": "string",
-  "merchant_name": "string",
-  "merchant_address": "string",
   "date": "YYYY-MM-DD or raw string",
   "time": "HH:MM or raw string or empty",
   "currency": "USD | EUR | GBP | … or raw symbol",
@@ -626,8 +622,6 @@ Data field explanations:
   -Global properties:
     -summary_label: A short, human-readable label for the receipt (i.e. "Groceries" or "Tobacco shop").
     This cannot be empty--if you cannot decide, fall back to "Receipt"
-    -merchant_name: Name of shop or company if present on the receipt.
-    -merchant_address: address of merchant, if present on the receipt
     -date: Date of purchase, if present on the receipt
     -time: Time of purchase, if present on the receipt
     -currency: Monetary currency as indicated by the receipt. The indication may be a single symbol, such as $ or £
@@ -716,8 +710,6 @@ produce the JSON object.
 
     return ReceiptData(
         summary_label=d.get("summary_label", ""),
-        merchant_name=d.get("merchant_name", ""),
-        merchant_address=d.get("merchant_address", ""),
         date=d.get("date", ""),
         time=d.get("time", ""),
         items=items,
