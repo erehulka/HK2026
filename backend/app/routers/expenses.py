@@ -257,6 +257,7 @@ def update_expense(
     update_doc: dict = {
         "updatedAt": now,
     }
+    patch_items = patch.pop("items", None)
     if "description" in patch:
         update_doc["description"] = patch["description"]
     if "created_by" in patch:
@@ -280,6 +281,83 @@ def update_expense(
         update_doc["splitType"] = (
             split_type.value if isinstance(split_type, ExpenseSplitType) else split_type
         )
+
+    if patch_items is not None:
+        existing_item_ids: list[ObjectId] = []
+        seen_item_ids: set[ObjectId] = set()
+        retained_item_ids: list[ObjectId] = []
+        normalized_items: list[tuple[ObjectId | None, dict[str, int | str]]] = []
+
+        for item_patch in patch_items:
+            item_id = item_patch.get("id")
+            normalized_iid: ObjectId | None = None
+            if item_id:
+                iid = parse_object_id(item_id, field="items.id")
+                if iid not in seen_item_ids:
+                    seen_item_ids.add(iid)
+                    existing_item_ids.append(iid)
+                    normalized_iid = iid
+
+            normalized_items.append(
+                (
+                    normalized_iid,
+                    {
+                        "description": item_patch["description"],
+                        "amount": item_patch["amount"],
+                    },
+                )
+            )
+
+        if existing_item_ids:
+            existing_count = db.items.count_documents(
+                {
+                    "_id": {"$in": existing_item_ids},
+                    "expenseId": eid,
+                }
+            )
+            if existing_count != len(existing_item_ids):
+                raise HTTPException(
+                    status_code=404,
+                    detail="One or more items were not found on this expense",
+                )
+
+        for item_id, item_set in normalized_items:
+            if item_id is not None:
+                db.items.update_one(
+                    {"_id": item_id, "expenseId": eid},
+                    {"$set": item_set},
+                )
+                retained_item_ids.append(item_id)
+            else:
+                insert_result = db.items.insert_one({
+                    "expenseId": eid,
+                    **item_set,
+                })
+                retained_item_ids.append(insert_result.inserted_id)
+
+        if retained_item_ids:
+            db.items.delete_many(
+                {
+                    "expenseId": eid,
+                    "_id": {"$nin": retained_item_ids},
+                }
+            )
+        else:
+            db.items.delete_many({"expenseId": eid})
+
+        item_docs = list(db.items.find({"expenseId": eid}, {"_id": 1, "amount": 1}))
+        total_amount = 0
+        for item_doc in item_docs:
+            amount = item_doc["amount"]
+            if not isinstance(amount, int) or isinstance(amount, bool):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Stored item amount must be an integer",
+                )
+            total_amount += amount
+
+        update_doc["items"] = [item_doc["_id"] for item_doc in item_docs]
+        update_doc["totalAmount"] = total_amount
 
     result = db.expenses.update_one(
         {"_id": eid, "groupId": gid},
