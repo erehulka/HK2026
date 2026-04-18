@@ -1,0 +1,44 @@
+{
+  "merchant_name": "TESCO metro",
+  "merchant_address": "TEL 0845 6779218",
+  "date": "2012-04-23",
+  "time": "19:51",
+  "items": [
+    {
+      "name": "FRESH MILK",
+      "quantity": 2.0,
+      "unit_price": 0.95,
+      "total_price": 0.89,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "MUESLI",
+      "quantity": 1.0,
+      "unit_price": 2.29,
+      "total_price": 2.29,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "DARK CHOCOLATE",
+      "quantity": 2.0,
+      "unit_price": 0.95,
+      "total_price": 1.9,
+      "notes": "",
+      "language": "en"
+    }
+  ],
+  "subtotal": 5.08,
+  "vat_rate_pct": null,
+  "vat_amount": null,
+  "tip": 0.0,
+  "total": 5.08,
+  "currency": "GBP",
+  "ocr_sum_verified": true,
+  "raw_text": "TESCO\nmetro\nTEL 0845 6779218\n\nFRESH MILK\nMUESLI\nDARK CHOCOLATE *\n2 @ £0.95\n0.89\n2.29\n1.90\n\nTOTAL\nMASTERCARD SALE\nAID : A0000000041010\nNUMBER : ***0938 ICC\nPAN SEQ NO : 02\nAUTH CODE : 036017\nMERCHANT : 1833431\nSTART : 10/10 EXPIRY : 11/13\nCardholder PIN Verified\nCHANGE DUE\n0.00\n\nCLUBCARD STATEMENT\n\nCLUBCARD NUMBER 634004902428294*\nPOINTS THIS VISIT\n5\nTOTAL UP TO 22/04/12\n717\nTOTAL INCLUDES :\nTPF BONUS POINTS\n360\nGREEN CLUBCARD POINTS\n14\n\nHow did we do?\nVisit www.tescocomments.com and\ntell us about your shopping trip\n\n23/04/12 19:51 2407 004 1004 1625\n\nalamy\nImage ID: CNTYDX\nwww.alamy.com",
+  "languages": [
+    "en",
+    "und"
+  ]
+}
