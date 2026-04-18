@@ -2,7 +2,7 @@
 
 import receipt_processor
 
-result = receipt_processor.process_receipt('test_data/complete_arabic.jpg', 'outputs')
+result = receipt_processor.process_receipt('test_data/incomplete3.jpg', 'outputs')
 
 if not result.ok:
     print(f"✗ Processing failed: {result.reason}")
@@ -10,6 +10,7 @@ if not result.ok:
 
 d = result.data
 print("✓ Receipt processed successfully.")
+print(f"  Receipt tag: '{d.summary_label}'")
 print(f"  Languages    : {d.languages}  (override via result.data.items[n].language = 'xx')")
 print(f"  OCR verified : {d.ocr_sum_verified}")
 print(f"  JSON saved   : {result.json_path}")

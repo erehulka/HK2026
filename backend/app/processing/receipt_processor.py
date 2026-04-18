@@ -58,6 +58,7 @@ class LineItem:
 
 @dataclass
 class ReceiptData:
+    summary_label: str
     merchant_name: str
     merchant_address: str
     date: str
@@ -528,6 +529,7 @@ def _step2_structure_from_text(
 Target JSON schema:
 
 {
+  "summary_label": "string",
   "merchant_name": "string",
   "merchant_address": "string",
   "date": "YYYY-MM-DD or raw string",
@@ -589,6 +591,29 @@ ITEM EXTRACTION RULES:
 
 LANGUAGE RULE:
 - Assign "und" (undetermined) to each language field--the actual value will be assigned later.
+
+Data field explanations:
+  -Global properties:
+    -summary_label: A short, human-readable label for the receipt (i.e. "Groceries" or "Tobacco shop")
+    -merchant_name: Name of shop or company if present on the receipt.
+    -merchant_address: address of merchant, if present on the receipt
+    -date: Date of purchase, if present on the receipt
+    -time: Time of purchase, if present on the receipt
+    -currency: Monetary currency as indicated by the receipt. The indication may be a single symbol, such as $ or £
+    -subtotal: sum of item prices, before VAT
+    -vat_rate_pct: VAT rate in percent
+    -vat_amound: VAT amount added to the subtotal
+    -tip: The tip, if present as an individual item (but also include it in items)
+    -total: Total invoiced amount, including VAT
+    -raw_text: Raw output of the OCR procedure
+  -Item properties:
+    -name: Label of the item
+    -quantity: Either the number of units of this item (i.e. COLA x2 is a 'COLA' with quantity = 2.0),
+     or the amount if the item is priced by weight/volume.
+    -unit_price: Price per one unit of this item, or per unit weight/volume
+    -total_price: Total price paid for this item. Equal to unit_price * quantity
+    -notes: notes for this item
+    -language: leave as "und", will be assigned later
 """
 
     prompt = f"""
@@ -659,6 +684,7 @@ produce the JSON object.
         )
 
     return ReceiptData(
+        summary_label=d.get("summary_label", ""),
         merchant_name=d.get("merchant_name", ""),
         merchant_address=d.get("merchant_address", ""),
         date=d.get("date", ""),

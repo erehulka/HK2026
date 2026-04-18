@@ -1,0 +1,163 @@
+{
+  "merchant_name": "",
+  "merchant_address": "",
+  "date": "",
+  "time": "",
+  "items": [
+    {
+      "name": "15g",
+      "quantity": 1.0,
+      "unit_price": 2.99,
+      "total_price": 2.99,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "1.5g",
+      "quantity": 1.0,
+      "unit_price": 5.55,
+      "total_price": 5.55,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "1.5g",
+      "quantity": 1.0,
+      "unit_price": 1.99,
+      "total_price": 1.99,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "Plaice",
+      "quantity": 800.0,
+      "unit_price": 1.99,
+      "total_price": 1.99,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Pines",
+      "quantity": 1.5,
+      "unit_price": 1.49,
+      "total_price": 1.49,
+      "notes": "kg",
+      "language": "en"
+    },
+    {
+      "name": "Bees",
+      "quantity": 1.0,
+      "unit_price": 0.99,
+      "total_price": 0.99,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "Numbers",
+      "quantity": 1.0,
+      "unit_price": 0.99,
+      "total_price": 0.99,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "Sampions Brown",
+      "quantity": 1.0,
+      "unit_price": 0.99,
+      "total_price": 0.99,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "Garlic ECO",
+      "quantity": 1.0,
+      "unit_price": 2.59,
+      "total_price": 2.59,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "Mini Steaks",
+      "quantity": 400.0,
+      "unit_price": 2.29,
+      "total_price": 2.29,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Mince Meat",
+      "quantity": 500.0,
+      "unit_price": 2.89,
+      "total_price": 2.89,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Minute Steaks",
+      "quantity": 400.0,
+      "unit_price": 2.75,
+      "total_price": 2.75,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Turkey Mini Steaks",
+      "quantity": 380.0,
+      "unit_price": 1.09,
+      "total_price": 1.09,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Paprika Red",
+      "quantity": 500.0,
+      "unit_price": 2.99,
+      "total_price": 2.99,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Grapes Seedless",
+      "quantity": 1.0,
+      "unit_price": 0.98,
+      "total_price": 0.98,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "Kaki",
+      "quantity": 1.0,
+      "unit_price": 0.35,
+      "total_price": 0.35,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "Sour Cream",
+      "quantity": 200.0,
+      "unit_price": 0.85,
+      "total_price": 0.85,
+      "notes": "g",
+      "language": "en"
+    },
+    {
+      "name": "Whole Grain Toast",
+      "quantity": 250.0,
+      "unit_price": 53.28,
+      "total_price": 53.28,
+      "notes": "g",
+      "language": "en"
+    }
+  ],
+  "subtotal": 53.28,
+  "vat_rate_pct": null,
+  "vat_amount": null,
+  "tip": null,
+  "total": 53.28,
+  "currency": "USD",
+  "ocr_sum_verified": false,
+  "raw_text": "15g 2.99\n1.5g 5.55\n1.5g 1.99\nPlaice 800g 1.99\nPines 1.5kg 1.49\nBees 0.99\nNumbers 0.99\nSampions Brown 0.99\nGarlic ECO 2.59\nMini Steaks 400g 2.29\nMince Meat 500g 2.89\nMinute Steaks 400g 2.75\nTurkey Mini Steaks 380g 1.09\nPaprika Red 500g 2.99\nGrapes Seedless 0.98\nKaki 0.35\nSour Cream 200g 0.85\nWhole Grain Toast 250g 53.28\nTotal [24] 53.28\nCredit Card USD\n\n-C-L-I-E-N-T- -R-E-C-E-I-P-T-\n\nTerminal-Nr: 498\nTA 9846546 NR 6.\nCard Payment\nOnline\n\nUSD 53.28\nShopping With Us!\nOrder # 1234\nOrder # 1234",
+  "languages": [
+    "en"
+  ]
+}
