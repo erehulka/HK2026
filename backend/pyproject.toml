@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "hk2026-backend"
+version = "0.1.0"
+description = "HK2026 FastAPI backend"
+authors = ["HK2026 Maintainers"]
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fastapi = "0.115.12"
+uvicorn = { version = "0.34.1", extras = ["standard"] }
+pymongo = "4.12.0"
+dnspython = "2.7.0"
+python-dotenv = "1.1.0"
+anthropic = ">=0.40.0"
+email-validator = "^2.0"
+certifi = "^2026.2.25"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
