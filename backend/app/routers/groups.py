@@ -52,7 +52,11 @@ def get_group(group_id: str, db: Database = Depends(get_db)) -> GroupDetailOut:
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     expense_ids = group.get("expenseIds", [])
-    expenses = list(db.expenses.find({"_id": {"$in": expense_ids}})) if expense_ids else []
+    expenses = (
+        list(db.expenses.find({"_id": {"$in": expense_ids}, "groupId": gid}))
+        if expense_ids
+        else []
+    )
     by_id = {expense["_id"]: expense for expense in expenses}
     ordered = [by_id[expense_id] for expense_id in expense_ids if expense_id in by_id]
     return group_document_to_detail_out(group, ordered)
