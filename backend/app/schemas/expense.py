@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.item import ItemCreate, ItemOut, _amount_from_mongo
 
@@ -13,6 +14,7 @@ from app.schemas.item import ItemCreate, ItemOut, _amount_from_mongo
 class ExpenseSplitType(str, Enum):
     EQUAL = "Equal"
     SHARES = "Shares"
+
 
 def _amount_cents_from_mongo(value: Any) -> int:
     """Read stored expense total as integer euro cents."""
@@ -28,6 +30,7 @@ def _amount_cents_from_mongo(value: Any) -> int:
 def read_stored_expense_amount_cents(value: Any) -> int:
     """Read an ``amount`` field from MongoDB (integer euro cents)."""
     return _amount_cents_from_mongo(value)
+
 
 class ExpenseCreate(BaseModel):
     """Body for creating an expense in a group."""
@@ -63,18 +66,14 @@ class ExpenseCreate(BaseModel):
 class ExpenseFrontendCreate(BaseModel):
     """Body used by the frontend to create an expense and its items in one request."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     description: str = Field(..., min_length=1, max_length=5000)
-    paid_by: str = Field(..., alias="paidBy", description="User who paid for the expense")
+    paid_by: str = Field(..., description="User who paid for the expense")
     participant_user_ids: list[str] = Field(
         ...,
-        alias="participantUserIds",
         min_length=1,
         description="Users participating in this expense",
     )
     split_type: ExpenseSplitType = Field(
-        alias="splitType",
         default=ExpenseSplitType.EQUAL,
         description="How the expense is split",
     )
@@ -152,29 +151,17 @@ class ExpenseDetailOut(ExpenseOut):
 _MISSING = object()
 
 
-def _mongo_value(
-    doc: dict,
-    *,
-    snake_key: str,
-    camel_key: str,
-    default: object = _MISSING,
-) -> object:
-    """Read a value from snake_case key first, then camelCase fallback."""
-    if snake_key in doc:
-        return doc[snake_key]
-    if camel_key in doc:
-        return doc[camel_key]
-    if default is not _MISSING:
-        return default
-    msg = f"Missing '{snake_key}'/'{camel_key}' in expense document"
-    raise KeyError(msg)
-
-
-def _mongo_list(doc: dict, *, snake_key: str, camel_key: str) -> list[object]:
-    value = _mongo_value(doc, snake_key=snake_key, camel_key=camel_key, default=[])
+def _mongo_list(doc: dict, *, key: str, default: object = _MISSING) -> list[object]:
+    if key in doc:
+        value = doc[key]
+    elif default is not _MISSING:
+        value = default
+    else:
+        msg = f"Missing '{key}' in expense document"
+        raise KeyError(msg)
     if isinstance(value, list):
         return value
-    msg = f"Expected list for '{snake_key}'/'{camel_key}', got {type(value)}"
+    msg = f"Expected list for '{key}', got {type(value)}"
     raise TypeError(msg)
 
 
@@ -200,33 +187,18 @@ def expense_document_to_out(doc: dict) -> ExpenseOut:
     """Map a MongoDB expense document to `ExpenseOut`."""
     return ExpenseOut(
         id=str(doc["_id"]),
-        group_id=str(_mongo_value(doc, snake_key="group_id", camel_key="groupId")),
+        group_id=str(doc["group_id"]),
         description=doc["description"],
-        total_amount=_amount_from_mongo(
-            _mongo_value(doc, snake_key="total_amount", camel_key="totalAmount"),
-            field="total_amount",
-        ),
-        created_by=str(_mongo_value(doc, snake_key="created_by", camel_key="createdBy")),
-        paid_by=str(_mongo_value(doc, snake_key="paid_by", camel_key="paidBy")),
-        participants=[
-            str(uid)
-            for uid in _mongo_list(
-                doc,
-                snake_key="participant_user_ids",
-                camel_key="participantUserIds",
-            )
-        ],
+        total_amount=_amount_from_mongo(doc["total_amount"], field="total_amount"),
+        created_by=str(doc["created_by"]),
+        paid_by=str(doc["paid_by"]),
+        participants=[str(uid) for uid in _mongo_list(doc, key="participant_user_ids")],
         split_type=_split_type_from_mongo(
-            _mongo_value(
-                doc,
-                snake_key="split_type",
-                camel_key="splitType",
-                default=ExpenseSplitType.EQUAL.value,
-            )
+            doc.get("split_type", ExpenseSplitType.EQUAL.value)
         ),
         items=[str(item_id) for item_id in doc.get("items", [])],
-        created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
-        updated_at=_mongo_value(doc, snake_key="updated_at", camel_key="updatedAt"),
+        created_at=doc["created_at"],
+        updated_at=doc["updated_at"],
     )
 
 
@@ -236,31 +208,16 @@ def expense_document_to_detail_out(doc: dict, items: list[dict]) -> ExpenseDetai
 
     return ExpenseDetailOut(
         id=str(doc["_id"]),
-        group_id=str(_mongo_value(doc, snake_key="group_id", camel_key="groupId")),
+        group_id=str(doc["group_id"]),
         description=doc["description"],
-        total_amount=_amount_from_mongo(
-            _mongo_value(doc, snake_key="total_amount", camel_key="totalAmount"),
-            field="total_amount",
-        ),
-        created_by=str(_mongo_value(doc, snake_key="created_by", camel_key="createdBy")),
-        paid_by=str(_mongo_value(doc, snake_key="paid_by", camel_key="paidBy")),
-        participants=[
-            str(uid)
-            for uid in _mongo_list(
-                doc,
-                snake_key="participant_user_ids",
-                camel_key="participantUserIds",
-            )
-        ],
+        total_amount=_amount_from_mongo(doc["total_amount"], field="total_amount"),
+        created_by=str(doc["created_by"]),
+        paid_by=str(doc["paid_by"]),
+        participants=[str(uid) for uid in _mongo_list(doc, key="participant_user_ids")],
         split_type=_split_type_from_mongo(
-            _mongo_value(
-                doc,
-                snake_key="split_type",
-                camel_key="splitType",
-                default=ExpenseSplitType.EQUAL.value,
-            )
+            doc.get("split_type", ExpenseSplitType.EQUAL.value)
         ),
         items=[item_document_to_out(item) for item in items],
-        created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
-        updated_at=_mongo_value(doc, snake_key="updated_at", camel_key="updatedAt"),
+        created_at=doc["created_at"],
+        updated_at=doc["updated_at"],
     )

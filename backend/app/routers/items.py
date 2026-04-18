@@ -60,7 +60,7 @@ def _total_amount_from_items(item_docs: list[dict]) -> int:
 
 def _refresh_expense_totals(db: Database, expense_id: ObjectId) -> dict | None:
     """Refresh stored totals and item ids from the item's current state."""
-    item_docs = list(db.items.find({"expenseId": expense_id}))
+    item_docs = list(db.items.find({"expense_id": expense_id}))
     total_amount = _total_amount_from_items(item_docs)
     now = datetime.now(timezone.utc)
     return db.expenses.find_one_and_update(
@@ -68,8 +68,8 @@ def _refresh_expense_totals(db: Database, expense_id: ObjectId) -> dict | None:
         {
             "$set": {
                 "items": [doc["_id"] for doc in item_docs],
-                "totalAmount": total_amount,
-                "updatedAt": now,
+                "total_amount": total_amount,
+                "updated_at": now,
             }
         },
         return_document=ReturnDocument.AFTER,
@@ -91,11 +91,11 @@ def add_item_to_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    expense = db.expenses.find_one({"_id": eid, "groupId": gid})
+    expense = db.expenses.find_one({"_id": eid, "group_id": gid})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     item_doc = {
-        "expenseId": eid,
+        "expense_id": eid,
         "description": body.description,
         "amount": body.amount,
     }
@@ -121,11 +121,11 @@ def update_expense_item(
     eid = parse_object_id(expense_id, field="expense_id")
     iid = parse_object_id(item_id, field="item_id")
     _require_group(db, gid)
-    expense = db.expenses.find_one({"_id": eid, "groupId": gid})
+    expense = db.expenses.find_one({"_id": eid, "group_id": gid})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
 
-    existing = db.items.find_one({"_id": iid, "expenseId": eid})
+    existing = db.items.find_one({"_id": iid, "expense_id": eid})
     if existing is None:
         raise HTTPException(status_code=404, detail="Item not found")
 
@@ -141,7 +141,7 @@ def update_expense_item(
         update_doc["amount"] = patch["amount"]
 
     after = db.items.find_one_and_update(
-        {"_id": iid, "expenseId": eid},
+        {"_id": iid, "expense_id": eid},
         {"$set": update_doc},
         return_document=ReturnDocument.AFTER,
     )
@@ -168,11 +168,11 @@ def delete_expense_item(
     eid = parse_object_id(expense_id, field="expense_id")
     iid = parse_object_id(item_id, field="item_id")
     _require_group(db, gid)
-    expense = db.expenses.find_one({"_id": eid, "groupId": gid})
+    expense = db.expenses.find_one({"_id": eid, "group_id": gid})
     if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
 
-    result = db.items.delete_one({"_id": iid, "expenseId": eid})
+    result = db.items.delete_one({"_id": iid, "expense_id": eid})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
 

@@ -60,7 +60,7 @@ def group_document_to_out(doc: dict) -> GroupOut:
         id=str(doc["_id"]),
         name=doc["name"],
         description=doc["description"],
-        expenses=[str(expense_id) for expense_id in doc.get("expenseIds", [])],
+        expenses=[str(expense_id) for expense_id in doc.get("expense_ids", [])],
         created_at=doc["created_at"],
     )
 
