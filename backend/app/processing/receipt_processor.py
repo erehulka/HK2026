@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from mistralai import Mistral
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral, models
+from mistralai.types import UNSET
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_BACKEND_ROOT / ".env")
@@ -266,6 +266,21 @@ def _strip_fences(raw: str) -> str:
     return re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
 
 
+def _assistant_text(response: models.ChatCompletionResponse) -> str:
+    """Normalize chat completion content to a plain string (mistralai 1.x)."""
+    content = response.choices[0].message.content
+    if content is UNSET or content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    parts: list[str] = []
+    for chunk in content:
+        text = getattr(chunk, "text", None)
+        if isinstance(text, str):
+            parts.append(text)
+    return "".join(parts).strip()
+
+
 def _call_mistral_vision(
     client: Mistral,
     system: str,
@@ -274,36 +289,36 @@ def _call_mistral_vision(
     user_text: str,
 ) -> str:
     data_uri = f"data:{media_type};base64,{b64}"
-    response = client.vision.complete(
+    response = client.chat.complete(
         model=VISION_MODEL,
         messages=[
-            ChatMessage(role="system", content=system),
-            ChatMessage(
-                role="user",
-                content=[
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": [
                     {"type": "image_url", "image_url": {"url": data_uri}},
                     {"type": "text", "text": user_text},
                 ],
-            ),
+            },
         ],
         max_tokens=MAX_TOKENS,
     )
-    return response.choices[0].message.content.strip()
+    return _assistant_text(response)
 
 
 def _call_mistral_text(
     client: Mistral, user_text: str, system: str = ""
 ) -> str:
-    messages: list[ChatMessage] = []
+    messages: list[dict[str, str]] = []
     if system:
-        messages.append(ChatMessage(role="system", content=system))
-    messages.append(ChatMessage(role="user", content=user_text))
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": user_text})
     response = client.chat.complete(
         model=TEXT_MODEL,
         messages=messages,
         max_tokens=MAX_TOKENS,
     )
-    return response.choices[0].message.content.strip()
+    return _assistant_text(response)
 
 
 def _parse_json_block(raw: str) -> dict:

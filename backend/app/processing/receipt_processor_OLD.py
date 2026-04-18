@@ -54,7 +54,8 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from mistralai import Mistral  # pip install mistralai
+from mistralai import Mistral, models  # pip install mistralai
+from mistralai.types import UNSET
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_BACKEND_ROOT / ".env")
@@ -334,6 +335,20 @@ def _strip_fences(raw: str) -> str:
     return re.sub(r"```(?:json)?", "", raw).replace("```", "").strip()
 
 
+def _assistant_text(response: models.ChatCompletionResponse) -> str:
+    content = response.choices[0].message.content
+    if content is UNSET or content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    parts: list[str] = []
+    for chunk in content:
+        text = getattr(chunk, "text", None)
+        if isinstance(text, str):
+            parts.append(text)
+    return "".join(parts).strip()
+
+
 def _call_mistral_vision(client: Mistral,
                          system: str,
                          b64: str,
@@ -352,7 +367,7 @@ def _call_mistral_vision(client: Mistral,
             ]},
         ],
     )
-    return response.choices[0].message.content.strip()
+    return _assistant_text(response)
 
 
 def _call_mistral_text(client: Mistral, user_text: str, system: str = "") -> str:
@@ -366,7 +381,7 @@ def _call_mistral_text(client: Mistral, user_text: str, system: str = "") -> str
         max_tokens=MAX_TOKENS,
         messages=messages,
     )
-    return response.choices[0].message.content.strip()
+    return _assistant_text(response)
 
 
 def _parse_json_block(raw: str) -> dict:
