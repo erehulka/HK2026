@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+import certifi
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -29,7 +30,9 @@ def _require_uri() -> str:
 @lru_cache(maxsize=1)
 def get_mongo_client() -> MongoClient:
     """Return a shared MongoClient (thread-safe; reuse across requests)."""
-    return MongoClient(_require_uri())
+    # Use certifi's CA bundle so TLS works on macOS python.org builds that lack
+    # system trust store wiring (Atlas: CERTIFICATE_VERIFY_FAILED otherwise).
+    return MongoClient(_require_uri(), tlsCAFile=certifi.where())
 
 
 def get_database(name: str | None = None) -> Database:
