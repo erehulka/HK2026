@@ -14,6 +14,15 @@ def _ensure_expenses_by_group_index(db: Database) -> None:
     db.expenses.create_index(expected_key, name="expenses_by_group")
 
 
+def _ensure_items_by_expense_index(db: Database) -> None:
+    """Ensure `items_by_expense` targets `expenseId` (migrates legacy `expense_id`)."""
+    expected_key = [("expenseId", 1)]
+    existing = db.items.index_information().get("items_by_expense")
+    if existing and existing.get("key") != expected_key:
+        db.items.drop_index("items_by_expense")
+    db.items.create_index(expected_key, name="items_by_expense")
+
+
 def ensure_indexes(db: Database) -> None:
     """Create indexes used for uniqueness and efficient membership lookups."""
     db.group_memberships.create_index(
@@ -27,7 +36,4 @@ def ensure_indexes(db: Database) -> None:
         name="uniq_user_email",
     )
     _ensure_expenses_by_group_index(db)
-    db.items.create_index(
-        [("expenseId", 1)],
-        name="items_by_expense",
-    )
+    _ensure_items_by_expense_index(db)

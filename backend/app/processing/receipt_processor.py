@@ -862,7 +862,10 @@ def _step3_save(data: ReceiptData, image_path: Path, output_dir: Path) -> Path:
 # ── main pipeline ─────────────────────────────────────────────────────────────
 
 def process_receipt(
-    image_path: str | Path, output_dir: str | Path = "."
+    image_path: str | Path,
+    output_dir: str | Path = ".",
+    *,
+    save_json: bool = True,
 ) -> ProcessResult:
     image_path = Path(image_path)
     output_dir = Path(output_dir)
@@ -919,13 +922,15 @@ def process_receipt(
     # 5) Verify totals
     receipt_data.ocr_sum_verified = _verify_total(receipt_data)
 
-    # 6) Save JSON
-    try:
-        json_path = _step3_save(receipt_data, image_path, output_dir)
-    except Exception as exc:
-        return ProcessResult(ok=False, reason=f"Could not save JSON: {exc}")
+    # 6) Save JSON (optional)
+    if save_json:
+        try:
+            json_path = _step3_save(receipt_data, image_path, output_dir)
+        except Exception as exc:
+            return ProcessResult(ok=False, reason=f"Could not save JSON: {exc}")
+        return ProcessResult(ok=True, data=receipt_data, json_path=json_path)
 
-    return ProcessResult(ok=True, data=receipt_data, json_path=json_path)
+    return ProcessResult(ok=True, data=receipt_data, json_path=None)
 
 
 # ── CLI runner ────────────────────────────────────────────────────────────────
