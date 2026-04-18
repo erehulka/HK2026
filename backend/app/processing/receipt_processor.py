@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from pillow_heif import register_heif_opener
+register_heif_opener()
 
 from dotenv import load_dotenv
 from mistralai import Mistral, models
@@ -36,7 +38,7 @@ TEXT_MODEL = "mistral-small-latest"
 MAX_TOKENS = 2048
 TOTAL_TOLERANCE = 0.02  # ±2 cents rounding slack per item
 
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".heic", "heif"}
 MEDIA_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -426,13 +428,27 @@ def _run_ocr(client: Mistral, image_path: Path) -> str:
     - Call client.ocr.process(model=..., document=...)
     - Extract text from resp.pages[0].markdown
     """
-    with open(image_path, "rb") as f:
-        data = f.read()
-
     ext = image_path.suffix.lower()
-    mime = "image/png" if ext == ".png" else "image/jpeg"
+
+    # HEIC/HEIF → convert to PNG bytes
+    if ext in {".heic", ".heif"}:
+        from PIL import Image
+        img = Image.open(image_path)
+        img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        data = buf.getvalue()
+        mime = "image/png"
+
+    else:
+        # Normal JPEG/PNG path
+        with open(image_path, "rb") as f:
+            data = f.read()
+        mime = "image/png" if ext == ".png" else "image/jpeg"
+
     b64 = base64.b64encode(data).decode("utf-8")
     data_url = f"data:{mime};base64,{b64}"
+
 
     chunk = models.DocumentURLChunk(
         document_url=data_url,
