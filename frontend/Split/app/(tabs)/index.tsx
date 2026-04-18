@@ -4,17 +4,11 @@ import { useCallback } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { GroupOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
 const userGroupsQueryKey = (userId: string) =>
   ["users", userId, "groups"] as const;
-
-async function fetchUserGroups(userId: string): Promise<GroupOut[]> {
-  const response = ;
-  return response.data;
-}
 
 export default function HomeScreen() {
   const {
@@ -26,10 +20,9 @@ export default function HomeScreen() {
     isRefetching,
   } = useQuery({
     queryKey: userGroupsQueryKey(CURRENT_USER_BACKEND_ID),
-    queryFn: () => await backendClient.listUserGroupsUsersUserIdGroupsGet(
-    CURRENT_USER_BACKEND_ID
-  ),
-  select: (response) => response.data,
+    queryFn: () =>
+      backendClient.listUserGroupsUsersUserIdGroupsGet(CURRENT_USER_BACKEND_ID),
+    select: (response) => response.data,
   });
 
   useFocusEffect(
