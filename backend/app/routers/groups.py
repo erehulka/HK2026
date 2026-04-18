@@ -12,7 +12,7 @@ from app.debts import simplified_debt_matrix_cents
 from app.deps import get_db
 from app.mongo_ids import parse_object_id
 from app.schemas.debts import SimplifiedGroupDebtsOut
-from app.schemas.group import GroupCreate, GroupOut
+from app.schemas.group import GroupCreate, GroupDetailOut, GroupOut, group_document_to_detail_out
 from app.schemas.membership import GroupMembershipOut
 from app.schemas.user import UserOut, user_document_to_out
 
@@ -31,14 +31,37 @@ def create_group(body: GroupCreate, db: Database = Depends(get_db)) -> GroupOut:
         "name": body.name,
         "description": body.description,
         "created_at": created_at,
+        "expenseIds": [],
     }
     result = db.groups.insert_one(doc)
     return GroupOut(
         id=str(result.inserted_id),
         name=body.name,
         description=body.description,
+        expenses=[],
         created_at=created_at,
     )
+
+
+@router.get(
+    "/{group_id}",
+    response_model=GroupDetailOut,
+    summary="Get a group with its expenses",
+)
+def get_group(group_id: str, db: Database = Depends(get_db)) -> GroupDetailOut:
+    gid = parse_object_id(group_id, field="group_id")
+    group = db.groups.find_one({"_id": gid})
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
+    expense_ids = group.get("expenseIds", [])
+    expenses = (
+        list(db.expenses.find({"_id": {"$in": expense_ids}, "groupId": gid}))
+        if expense_ids
+        else []
+    )
+    by_id = {expense["_id"]: expense for expense in expenses}
+    ordered = [by_id[expense_id] for expense_id in expense_ids if expense_id in by_id]
+    return group_document_to_detail_out(group, ordered)
 
 
 @router.get(
