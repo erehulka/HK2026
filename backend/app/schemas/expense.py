@@ -131,20 +131,57 @@ class ExpenseDetailOut(ExpenseOut):
     items: list[ItemOut]
 
 
+def _mongo_value(doc: dict, *, snake_key: str, camel_key: str) -> object:
+    if snake_key in doc:
+        return doc[snake_key]
+    return doc[camel_key]
+
+
+def _mongo_list(doc: dict, *, snake_key: str, camel_key: str) -> list:
+    if snake_key in doc:
+        return doc[snake_key]
+    return doc.get(camel_key, [])
+
+
+def _split_type_from_mongo(value: object) -> ExpenseSplitType:
+    if isinstance(value, ExpenseSplitType):
+        return value
+    if value is None:
+        return ExpenseSplitType.EQUAL
+    if isinstance(value, str):
+        if value in {ExpenseSplitType.EQUAL.value, "equal"}:
+            return ExpenseSplitType.EQUAL
+        if value in {ExpenseSplitType.SHARES.value, "shares"}:
+            return ExpenseSplitType.SHARES
+    return ExpenseSplitType(value)
+
+
 def expense_document_to_out(doc: dict) -> ExpenseOut:
     """Map a MongoDB expense document to `ExpenseOut`."""
     return ExpenseOut(
         id=str(doc["_id"]),
-        group_id=str(doc["groupId"]),
+        group_id=str(_mongo_value(doc, snake_key="group_id", camel_key="groupId")),
         description=doc["description"],
-        total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
-        created_by=str(doc["createdBy"]),
-        paid_by=str(doc["paidBy"]),
-        participants=[str(uid) for uid in doc.get("participantUserIds", [])],
-        split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
+        total_amount=_amount_from_mongo(
+            _mongo_value(doc, snake_key="total_amount", camel_key="totalAmount"),
+            field="total_amount",
+        ),
+        created_by=str(_mongo_value(doc, snake_key="created_by", camel_key="createdBy")),
+        paid_by=str(_mongo_value(doc, snake_key="paid_by", camel_key="paidBy")),
+        participants=[
+            str(uid)
+            for uid in _mongo_list(
+                doc,
+                snake_key="participant_user_ids",
+                camel_key="participantUserIds",
+            )
+        ],
+        split_type=_split_type_from_mongo(
+            doc.get("split_type", doc.get("splitType", ExpenseSplitType.EQUAL.value))
+        ),
         items=[str(item_id) for item_id in doc.get("items", [])],
-        created_at=doc["createdAt"],
-        updated_at=doc["updatedAt"],
+        created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
+        updated_at=_mongo_value(doc, snake_key="updated_at", camel_key="updatedAt"),
     )
 
 
@@ -154,14 +191,26 @@ def expense_document_to_detail_out(doc: dict, items: list[dict]) -> ExpenseDetai
 
     return ExpenseDetailOut(
         id=str(doc["_id"]),
-        group_id=str(doc["groupId"]),
+        group_id=str(_mongo_value(doc, snake_key="group_id", camel_key="groupId")),
         description=doc["description"],
-        total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
-        created_by=str(doc["createdBy"]),
-        paid_by=str(doc["paidBy"]),
-        participants=[str(uid) for uid in doc.get("participantUserIds", [])],
-        split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
+        total_amount=_amount_from_mongo(
+            _mongo_value(doc, snake_key="total_amount", camel_key="totalAmount"),
+            field="total_amount",
+        ),
+        created_by=str(_mongo_value(doc, snake_key="created_by", camel_key="createdBy")),
+        paid_by=str(_mongo_value(doc, snake_key="paid_by", camel_key="paidBy")),
+        participants=[
+            str(uid)
+            for uid in _mongo_list(
+                doc,
+                snake_key="participant_user_ids",
+                camel_key="participantUserIds",
+            )
+        ],
+        split_type=_split_type_from_mongo(
+            doc.get("split_type", doc.get("splitType", ExpenseSplitType.EQUAL.value))
+        ),
         items=[item_document_to_out(item) for item in items],
-        created_at=doc["createdAt"],
-        updated_at=doc["updatedAt"],
+        created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
+        updated_at=_mongo_value(doc, snake_key="updated_at", camel_key="updatedAt"),
     )
