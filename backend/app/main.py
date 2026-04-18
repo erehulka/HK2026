@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.db import get_database
 from app.db.indexes import ensure_indexes
-from app.routers import expenses, groups, items, users
+from app.routers import expenses, groups, items, receipts, users
 
 
 @asynccontextmanager
@@ -18,6 +18,7 @@ app.include_router(groups.router)
 app.include_router(users.router)
 app.include_router(expenses.router)
 app.include_router(items.router)
+app.include_router(receipts.router)
 
 
 @app.get("/")
