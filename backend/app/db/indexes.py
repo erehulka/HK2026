@@ -17,3 +17,7 @@ def ensure_indexes(db: Database) -> None:
         unique=True,
         name="uniq_user_email",
     )
+    db.expenses.create_index(
+        [("group_id", 1)],
+        name="expenses_by_group",
+    )
