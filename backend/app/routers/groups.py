@@ -10,7 +10,6 @@ from pymongo.errors import DuplicateKeyError
 
 from app.deps import get_db
 from app.mongo_ids import parse_object_id
-from app.schemas.expense import expense_document_to_out
 from app.schemas.group import GroupCreate, GroupDetailOut, GroupOut, group_document_to_detail_out
 from app.schemas.membership import GroupMembershipOut
 from app.schemas.user import UserOut, user_document_to_out
