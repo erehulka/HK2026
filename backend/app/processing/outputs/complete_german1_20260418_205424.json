@@ -1,0 +1,51 @@
+{
+  "merchant_name": "Berghotel Grosse Scheidegg",
+  "merchant_address": "3819 Grindelwald",
+  "date": "2007-07-30",
+  "time": "15:29:17",
+  "items": [
+    {
+      "name": "Latte Macchiato",
+      "quantity": 2.0,
+      "unit_price": 4.5,
+      "total_price": 9.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "Stoki",
+      "quantity": 1.0,
+      "unit_price": 5.0,
+      "total_price": 5.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "Schweinochritzel",
+      "quantity": 1.0,
+      "unit_price": 22.0,
+      "total_price": 22.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "Chäospätzli",
+      "quantity": 1.0,
+      "unit_price": 18.5,
+      "total_price": 18.5,
+      "notes": "",
+      "language": "de"
+    }
+  ],
+  "subtotal": 54.5,
+  "vat_rate_pct": 7.6,
+  "vat_amount": 3.85,
+  "tip": null,
+  "total": 54.5,
+  "currency": "CHF",
+  "ocr_sum_verified": true,
+  "raw_text": "Berghotel\nGrosse Scheidegg\n3819 Grindelwald\nFamilie R.Müller\n\nRech. Nr. 4572          30.07.2007/15:29:17\nBar                      Tisch 7/01\n\n2xLatte Macchiato  A  4.50 CHF  9.00\n1xStoki           A  5.00 CHF  5.00\n1xSchweinochritzel A 22.00 CHF 22.00\n1xChäospätzli A 18.50 CHF 18.50\n\nTotal: CHF 54.50\n\nIncl. 7.6% MwSt 54.50 CHF: 3.85\n\nEntspricht in Euro 36.33 EUR\nEs bediente Ste: Ursula\n\nMwSt Nr.: 430 234\nTel.: 033 853 67 16\nFax.: 033 853 67 19\nE-mail: grossescheidegg@bluevin.ch",
+  "languages": [
+    "de"
+  ]
+}

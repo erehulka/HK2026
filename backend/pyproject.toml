@@ -6,8 +6,9 @@ authors = ["HK2026 Maintainers"]
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 fastapi = "0.115.12"
+python-multipart = "^0.0.20"
 uvicorn = { version = "0.34.1", extras = ["standard"] }
 pymongo = "4.12.0"
 dnspython = "2.7.0"
@@ -15,7 +16,14 @@ python-dotenv = "1.1.0"
 anthropic = ">=0.40.0"
 email-validator = "^2.0"
 certifi = "^2026.2.25"
+mistralai = "^1.12.0"
+pillow-heif = "^1.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=8.3,<9.0)"
+]

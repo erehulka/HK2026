@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.db import get_database
 from app.db.indexes import ensure_indexes
-from app.routers import expenses, groups, users
+from app.routers import expenses, groups, items, receipts, users
 
 
 @asynccontextmanager
@@ -13,10 +13,18 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="HK2026 Backend", lifespan=lifespan)
+app = FastAPI(
+    title="HK2026 Backend",
+    lifespan=lifespan,
+    servers=[
+        {"url": "http://127.0.0.1:8000", "description": "Local development"},
+    ],
+)
 app.include_router(groups.router)
 app.include_router(users.router)
 app.include_router(expenses.router)
+app.include_router(items.router)
+app.include_router(receipts.router)
 
 
 @app.get("/")
