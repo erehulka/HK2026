@@ -43,6 +43,8 @@ MEDIA_TYPES = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".png": "image/png",
+    ".heic": "image/heic",
+    ".heif": "image/heif"
 }
 
 
