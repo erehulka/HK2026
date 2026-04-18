@@ -1,4 +1,4 @@
-"""Tests for ``app.debts.simplify`` (equal-split gross IOUs + Splitwise-style max-flow simplification)."""
+"""Tests for ``app.debts.simplify`` (equal-split gross IOUs + max-flow simplification)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from app.debts.simplify import (
     _balances_from_gross_matrix,
     _equal_shares_cents,
     _gross_matrix_from_even_expenses,
-    _splitwise_simplify_from_gross,
+    _simplify_from_gross,
     simplified_debt_matrix_cents,
 )
 
@@ -82,7 +82,7 @@ def test_equal_shares_cents_rejects_nonpositive_n() -> None:
         _equal_shares_cents(10, 0)
 
 
-def test_splitwise_chain_keeps_only_existing_edges() -> None:
+def test_simplify_chain_keeps_only_existing_edges() -> None:
     """A→B and B→C in gross graph: simplification does not introduce A→C."""
     A, B, C = ObjectId(), ObjectId(), ObjectId()
     mi = _sorted_member_index([A, B, C])
@@ -102,7 +102,7 @@ def test_splitwise_chain_keeps_only_existing_edges() -> None:
     ]
     gross = _gross_matrix_from_even_expenses(expenses, mi, 3)
     bal = _balances_from_gross_matrix(gross)
-    mat = _splitwise_simplify_from_gross(gross)
+    mat = _simplify_from_gross(gross)
     ia, ib, ic = mi[str(A)], mi[str(B)], mi[str(C)]
     assert bal[ia] == -10 and bal[ic] == 10 and bal[ib] == 0
     assert mat[ia][ib] == 10 and mat[ib][ic] == 10
@@ -130,7 +130,7 @@ def test_balances_mutual_expenses_net_to_zero_matrix() -> None:
     ]
     gross = _gross_matrix_from_even_expenses(expenses, mi, 2)
     bal = _balances_from_gross_matrix(gross)
-    mat = _splitwise_simplify_from_gross(gross)
+    mat = _simplify_from_gross(gross)
     assert bal == [0, 0]
     assert mat == [[0, 0], [0, 0]]
 
@@ -200,14 +200,14 @@ def test_simplified_debt_matrix_raises_when_group_missing() -> None:
         simplified_debt_matrix_cents(str(gid), db)
 
 
-def test_splitwise_matrix_preserves_net_balances_from_gross() -> None:
+def test_simplify_matrix_preserves_net_balances_from_gross() -> None:
     gross = [
         [0, 3, 4],
         [0, 0, 0],
         [0, 0, 0],
     ]
     want = _balances_from_gross_matrix(gross)
-    mat = _splitwise_simplify_from_gross(gross)
+    mat = _simplify_from_gross(gross)
     n = len(want)
     for i in range(n):
         incoming = sum(mat[j][i] for j in range(n))

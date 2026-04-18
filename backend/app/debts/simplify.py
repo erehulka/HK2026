@@ -1,11 +1,9 @@
-"""Group debt simplification: gross IOUs from expenses → Splitwise-style simplification.
+"""Group debt simplification: gross IOUs from expenses.
 
 Implements the max-flow iteration described in
 https://medium.com/@mithunmk93/algorithm-behind-splitwises-debt-simplification-feature-8ac485e97688
 (and the referenced Java sketch): repeatedly max-flow along an unvisited arc, rebuild from
-the residual graph, then add that arc with capacity equal to the max flow. Aligns with
-Splitwise's rule that settlement should not introduce debtor/creditor pairs that never
-existed in the gross IOU graph built from expenses.
+the residual graph, then add that arc with capacity equal to the max flow.
 """
 
 from __future__ import annotations
@@ -28,9 +26,9 @@ def _max_flow_value_and_residual_matrix(
     cap: list[list[int]], s: int, t: int
 ) -> tuple[int, list[list[int]]]:
     """
-    Max ``s→t`` flow on ``cap`` (euro cents), plus residual capacities as an ``n×n`` matrix.
+    Max ``s→t`` flow on ``cap`` (euro cents), plus residual capacities as an ``n*n`` matrix.
 
-    For each edge ``(u,v)`` with capacity ``c`` and flow ``f``: residual forward ``c−f``,
+    For each edge ``(u,v)`` with capacity ``c`` and flow ``f``: residual forward ``c-f``,
     residual reverse ``f`` (same convention as the hand-rolled Dinic step this replaced).
     """
     n = len(cap)
@@ -73,7 +71,7 @@ def _gross_matrix_from_even_expenses(
     """
     Directed IOUs from evenly-split expenses: ``gross[i][j]`` is cents member ``i`` owes ``j``.
 
-    Only edges that already exist from expenses can appear in Splitwise-style simplification.
+    Only edges that already exist from expenses can appear in simplification.
     """
     gross = [[0] * n for _ in range(n)]
     for doc in expenses:
@@ -136,9 +134,9 @@ def _net_pairwise_matrix(cap: list[list[int]]) -> list[list[int]]:
     return out
 
 
-def _splitwise_simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
+def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
     """
-    Simplify debts per Splitwise / max-flow iteration (Mithun Mohan K, Medium, 2019).
+    Simplify debts / max-flow iteration (Mithun Mohan K, Medium, 2019).
 
     Repeatedly pick an unvisited arc ``(s, t)`` with positive capacity, compute max ``s→t``
     flow on the current graph, rebuild the graph from residual capacities, then add a direct
@@ -185,7 +183,7 @@ def simplified_debt_matrix_cents(
       lexicographically for a stable row/column order.
     - ``matrix[i][j]`` is how many **euro cents** member ``i`` owes member ``j`` (0 if no debt).
 
-    Simplification follows the max-flow iteration described for Splitwise-style debt
+    Simplification follows the max-flow iteration described for debt
     simplification: net balances are preserved, and settlement only uses (and adjusts)
     money movement along directions that already existed in the gross IOU graph built from
     expenses (no brand-new debtor/creditor pairs such as ``A→C`` when only ``A→B`` and
@@ -212,5 +210,5 @@ def simplified_debt_matrix_cents(
 
     expenses = list(db.expenses.find({"group_id": gid}))
     gross = _gross_matrix_from_even_expenses(expenses, member_index, n)
-    matrix = _splitwise_simplify_from_gross(gross)
+    matrix = _simplify_from_gross(gross)
     return member_ids, matrix
