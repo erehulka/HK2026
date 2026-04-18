@@ -26,6 +26,11 @@ def _amount_cents_from_mongo(value: Any) -> int:
     raise TypeError(msg)
 
 
+def read_stored_expense_amount_cents(value: Any) -> int:
+    """Read an ``amount`` field from MongoDB (integer euro cents)."""
+    return _amount_cents_from_mongo(value)
+
+
 # TODO: Expenses should not have a persisted or request-level root `amount`; the
 # total should be calculated as the sum of line-item amounts (each in euro cents)
 # once `items` exist.
