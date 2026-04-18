@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -99,6 +100,15 @@ class ExpenseFrontendCreate(BaseModel):
         return v
 
 
+class ExpenseItemPatch(ItemCreate):
+    """Item payload for expense PATCH, optionally targeting an existing item id."""
+
+    id: str | None = Field(
+        default=None,
+        description="Existing item id to update; omit to create a new item",
+    )
+
+
 class ExpenseUpdate(BaseModel):
     """Partial update for an expense (PATCH)."""
 
@@ -107,6 +117,10 @@ class ExpenseUpdate(BaseModel):
     paid_by: str | None = None
     participants: list[str] | None = Field(default=None, min_length=1)
     split_type: ExpenseSplitType | None = None
+    items: list[ExpenseItemPatch] | None = Field(
+        default=None,
+        description="Items to create/update/delete as part of the expense patch",
+    )
 
     @field_validator("description", mode="before")
     @classmethod
