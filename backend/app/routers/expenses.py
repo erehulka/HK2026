@@ -98,10 +98,11 @@ def delete_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    db.items.delete_many({"expenseId": eid})
-    res = db.expenses.delete_one({"_id": eid, "groupId": gid})
-    if res.deleted_count == 0:
+    expense = db.expenses.find_one({"_id": eid, "groupId": gid}, {"_id": 1})
+    if expense is None:
         raise HTTPException(status_code=404, detail="Expense not found")
+    db.items.delete_many({"expenseId": eid})
+    db.expenses.delete_one({"_id": eid, "groupId": gid})
     db.groups.update_one({"_id": gid}, {"$pull": {"expenseIds": eid}})
 
 
