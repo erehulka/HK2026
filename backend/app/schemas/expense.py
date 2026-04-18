@@ -131,29 +131,51 @@ class ExpenseDetailOut(ExpenseOut):
     items: list[ItemOut]
 
 
-def _mongo_value(doc: dict, *, snake_key: str, camel_key: str) -> object:
-    if snake_key in doc:
-        return doc[snake_key]
-    return doc[camel_key]
+_MISSING = object()
 
 
-def _mongo_list(doc: dict, *, snake_key: str, camel_key: str) -> list:
+def _mongo_value(
+    doc: dict,
+    *,
+    snake_key: str,
+    camel_key: str,
+    default: object = _MISSING,
+) -> object:
+    """Read a value from snake_case key first, then camelCase fallback."""
     if snake_key in doc:
         return doc[snake_key]
-    return doc.get(camel_key, [])
+    if camel_key in doc:
+        return doc[camel_key]
+    if default is not _MISSING:
+        return default
+    msg = f"Missing '{snake_key}'/'{camel_key}' in expense document"
+    raise KeyError(msg)
+
+
+def _mongo_list(doc: dict, *, snake_key: str, camel_key: str) -> list[object]:
+    value = _mongo_value(doc, snake_key=snake_key, camel_key=camel_key, default=[])
+    if isinstance(value, list):
+        return value
+    msg = f"Expected list for '{snake_key}'/'{camel_key}', got {type(value)}"
+    raise TypeError(msg)
 
 
 def _split_type_from_mongo(value: object) -> ExpenseSplitType:
+    """Normalize persisted split type values to `ExpenseSplitType`."""
     if isinstance(value, ExpenseSplitType):
         return value
     if value is None:
         return ExpenseSplitType.EQUAL
     if isinstance(value, str):
-        if value in {ExpenseSplitType.EQUAL.value, "equal"}:
+        normalized = value.lower()
+        if normalized == ExpenseSplitType.EQUAL.value.lower():
             return ExpenseSplitType.EQUAL
-        if value in {ExpenseSplitType.SHARES.value, "shares"}:
+        if normalized == ExpenseSplitType.SHARES.value.lower():
             return ExpenseSplitType.SHARES
-    return ExpenseSplitType(value)
+    try:
+        return ExpenseSplitType(value)
+    except ValueError:
+        return ExpenseSplitType.EQUAL
 
 
 def expense_document_to_out(doc: dict) -> ExpenseOut:
@@ -177,7 +199,12 @@ def expense_document_to_out(doc: dict) -> ExpenseOut:
             )
         ],
         split_type=_split_type_from_mongo(
-            doc.get("split_type", doc.get("splitType", ExpenseSplitType.EQUAL.value))
+            _mongo_value(
+                doc,
+                snake_key="split_type",
+                camel_key="splitType",
+                default=ExpenseSplitType.EQUAL.value,
+            )
         ),
         items=[str(item_id) for item_id in doc.get("items", [])],
         created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
@@ -208,7 +235,12 @@ def expense_document_to_detail_out(doc: dict, items: list[dict]) -> ExpenseDetai
             )
         ],
         split_type=_split_type_from_mongo(
-            doc.get("split_type", doc.get("splitType", ExpenseSplitType.EQUAL.value))
+            _mongo_value(
+                doc,
+                snake_key="split_type",
+                camel_key="splitType",
+                default=ExpenseSplitType.EQUAL.value,
+            )
         ),
         items=[item_document_to_out(item) for item in items],
         created_at=_mongo_value(doc, snake_key="created_at", camel_key="createdAt"),
