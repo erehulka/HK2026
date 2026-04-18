@@ -14,6 +14,7 @@ from app.schemas.expense import (
     ExpenseCreate,
     ExpenseDetailOut,
     ExpenseOut,
+    ExpenseSplitType,
     ExpenseUpdate,
     expense_document_to_detail_out,
     expense_document_to_out,
@@ -66,6 +67,11 @@ def create_expense(
     members = _member_ids(db, gid)
     created_by_oid = parse_object_id(body.created_by, field="created_by")
     _validate_membership(created_by_oid, members, field="created_by")
+    participant_oids = [
+        parse_object_id(user_id, field="participants") for user_id in body.participants
+    ]
+    for participant_oid in participant_oids:
+        _validate_membership(participant_oid, members, field="participants")
 
     now = datetime.now(timezone.utc)
     expense_doc = {
@@ -73,7 +79,8 @@ def create_expense(
         "description": body.description,
         "totalAmount": 0,
         "createdBy": created_by_oid,
-        "participantUserIds": [],
+        "participantUserIds": participant_oids,
+        "splitType": body.split_type.value,
         "createdAt": now,
         "updatedAt": now,
         "items": [],
@@ -158,6 +165,19 @@ def update_expense(
         created_by_oid = parse_object_id(patch["created_by"], field="created_by")
         _validate_membership(created_by_oid, members, field="created_by")
         update_doc["createdBy"] = created_by_oid
+    if "participants" in patch:
+        participant_oids = [
+            parse_object_id(user_id, field="participants")
+            for user_id in patch["participants"]
+        ]
+        for participant_oid in participant_oids:
+            _validate_membership(participant_oid, members, field="participants")
+        update_doc["participantUserIds"] = participant_oids
+    if "split_type" in patch:
+        split_type = patch["split_type"]
+        update_doc["splitType"] = (
+            split_type.value if isinstance(split_type, ExpenseSplitType) else split_type
+        )
 
     result = db.expenses.update_one(
         {"_id": eid, "groupId": gid},

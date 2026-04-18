@@ -1,13 +1,13 @@
 from app.schemas.expense import (
     ExpenseCreate,
     ExpenseOut,
+    ExpenseSplitType,
     ExpenseUpdate,
     expense_document_to_out,
 )
 from app.schemas.item import (
     ItemCreate,
     ItemOut,
-    ItemShareCreate,
     ItemUpdate,
     item_document_to_out,
 )
@@ -18,10 +18,10 @@ from app.schemas.user import UserCreate, UserOut, user_document_to_out
 __all__ = [
     "ExpenseCreate",
     "ExpenseOut",
+    "ExpenseSplitType",
     "ExpenseUpdate",
     "ItemCreate",
     "ItemOut",
-    "ItemShareCreate",
     "ItemUpdate",
     "GroupCreate",
     "GroupMembershipOut",

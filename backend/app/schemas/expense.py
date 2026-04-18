@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.item import ItemOut, _amount_from_mongo
+
+
+class ExpenseSplitType(str, Enum):
+    EQUAL = "Equal"
+    SHARES = "Shares"
 
 
 class ExpenseCreate(BaseModel):
@@ -14,6 +20,15 @@ class ExpenseCreate(BaseModel):
 
     description: str = Field(..., min_length=1, max_length=5000)
     created_by: str = Field(..., description="User who created the expense")
+    participants: list[str] = Field(
+        ...,
+        min_length=1,
+        description="Users participating in this expense",
+    )
+    split_type: ExpenseSplitType = Field(
+        default=ExpenseSplitType.EQUAL,
+        description="How the expense is split",
+    )
 
     @field_validator("description", mode="before")
     @classmethod
@@ -22,12 +37,21 @@ class ExpenseCreate(BaseModel):
             return v.strip()
         return v
 
+    @field_validator("participants")
+    @classmethod
+    def unique_participants(cls, v: list[str]) -> list[str]:
+        if len(set(v)) != len(v):
+            raise ValueError("participants must be unique")
+        return v
+
 
 class ExpenseUpdate(BaseModel):
     """Partial update for an expense (PATCH)."""
 
     description: str | None = Field(default=None, min_length=1, max_length=5000)
     created_by: str | None = None
+    participants: list[str] | None = Field(default=None, min_length=1)
+    split_type: ExpenseSplitType | None = None
 
     @field_validator("description", mode="before")
     @classmethod
@@ -36,6 +60,15 @@ class ExpenseUpdate(BaseModel):
             return v
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator("participants")
+    @classmethod
+    def unique_participants(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(set(v)) != len(v):
+            raise ValueError("participants must be unique")
         return v
 
 
@@ -48,6 +81,7 @@ class ExpenseOut(BaseModel):
     total_amount: int = Field(description="Total amount in euro cents (100 = €1.00)")
     created_by: str
     participants: list[str]
+    split_type: ExpenseSplitType
     items: list[str]
     created_at: datetime
     updated_at: datetime
@@ -68,6 +102,7 @@ def expense_document_to_out(doc: dict) -> ExpenseOut:
         total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
         created_by=str(doc["createdBy"]),
         participants=[str(uid) for uid in doc.get("participantUserIds", [])],
+        split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
         items=[str(item_id) for item_id in doc.get("items", [])],
         created_at=doc["createdAt"],
         updated_at=doc["updatedAt"],
@@ -85,6 +120,7 @@ def expense_document_to_detail_out(doc: dict, items: list[dict]) -> ExpenseDetai
         total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
         created_by=str(doc["createdBy"]),
         participants=[str(uid) for uid in doc.get("participantUserIds", [])],
+        split_type=ExpenseSplitType(doc.get("splitType", ExpenseSplitType.EQUAL.value)),
         items=[item_document_to_out(item) for item in items],
         created_at=doc["createdAt"],
         updated_at=doc["updatedAt"],
