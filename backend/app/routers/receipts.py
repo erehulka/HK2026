@@ -5,13 +5,13 @@ from __future__ import annotations
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from app.processing import receipt_processor
+from app.schemas.receipt import ReceiptProcessedOut
 
 
 def _pick_image_suffix(filename: str | None, content_type: str | None) -> str:
@@ -39,10 +39,11 @@ router = APIRouter(prefix="/receipts", tags=["receipts"])
 @router.post(
     "/process",
     summary="Upload a receipt photo and get structured JSON",
+    response_model=ReceiptProcessedOut,
 )
 async def process_receipt_upload(
     file: UploadFile = File(..., description="Receipt image (JPEG or PNG)"),
-) -> dict[str, Any]:
+) -> ReceiptProcessedOut:
     suffix = _pick_image_suffix(file.filename, file.content_type)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix="receipt_upload_"))
@@ -65,4 +66,4 @@ async def process_receipt_upload(
             detail=result.reason or "Receipt processing failed",
         )
 
-    return result.data.to_dict()
+    return ReceiptProcessedOut.model_validate(result.data.to_dict())
