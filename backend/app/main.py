@@ -1,6 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-app = FastAPI(title="HK2026 Backend")
+from app.db import get_database
+from app.db.indexes import ensure_indexes
+from app.routers import groups, users
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_indexes(get_database())
+    yield
+
+
+app = FastAPI(title="HK2026 Backend", lifespan=lifespan)
+app.include_router(groups.router)
+app.include_router(users.router)
 
 
 @app.get("/")
