@@ -1,6 +1,8 @@
+
+
 import receipt_processor
 
-result = receipt_processor.process_receipt('test_data/complete_crumbled1.png', 'example_output.json')
+result = receipt_processor.process_receipt('test_data/complete_arabic.jpg', 'outputs')
 
 if not result.ok:
     print(f"✗ Processing failed: {result.reason}")
@@ -14,7 +16,7 @@ print(f"  JSON saved   : {result.json_path}")
 
 print("\n── Items with detected languages:")
 for i, item in enumerate(d.items):
-    print(f"  [{i}] ({item.language}) {item.name!r}")
+    print(f"  [{i}] ({item.language}) {item.name!r} ({item.unit_price}) x {item.quantity} ---> {item.total_price}")
 
 print("\n── Interpreting labels …")
 interpreted = result.interpret_labels()

@@ -1,0 +1,57 @@
+{
+  "merchant_name": "",
+  "merchant_address": "",
+  "date": "2011-11-08",
+  "time": "08:32",
+  "items": [
+    {
+      "name": "مياه معدنية",
+      "quantity": 1.0,
+      "unit_price": 5.0,
+      "total_price": 5.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "قطيرة",
+      "quantity": 1.0,
+      "unit_price": 88.0,
+      "total_price": 88.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "موز",
+      "quantity": 1.0,
+      "unit_price": 111.0,
+      "total_price": 111.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "تفاحة",
+      "quantity": 1.0,
+      "unit_price": 222.0,
+      "total_price": 222.0,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "حليب",
+      "quantity": 1.0,
+      "unit_price": 428.0,
+      "total_price": 428.0,
+      "notes": "",
+      "language": "und"
+    }
+  ],
+  "subtotal": 428.0,
+  "vat_rate_pct": null,
+  "vat_amount": null,
+  "tip": null,
+  "total": 428.0,
+  "currency": "USD",
+  "ocr_sum_verified": false,
+  "raw_text": "YOUR RECEIPT\n\n0003\nMachNo:0001\n2.00\n5.00\n88.00\n111.00\n222.00\n428.00\n\nRECEIPT NO\nClerk: Supervisor\nمياه معدنية\nقطيرة\nموز\nتفاحة\nحليب\nSubtotal\n\n5\n428.00\n428.00\n*0001 08:32 08/11/2011\nItem\nTOTAL\nCASH\nTue.\n*THANK YOU*",
+  "languages": []
+}

@@ -30,11 +30,11 @@ def _require_mistral_api_key() -> str:
 
 # ── constants ────────────────────────────────────────────────────────────────
 
-VISION_MODEL = "mistral-ocr"       # vision-capable; used for image passes
-TEXT_MODEL = "mistral-small"       # text-only; used for interpret + translate
+VISION_MODEL = "mistral-ocr-latest"
+TEXT_MODEL = "mistral-small-latest"
 
 MAX_TOKENS = 2048
-TOTAL_TOLERANCE = 0.02             # ±2 cents rounding slack per item
+TOTAL_TOLERANCE = 0.02  # ±2 cents rounding slack per item
 
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 MEDIA_TYPES = {
@@ -60,7 +60,7 @@ class LineItem:
 class ReceiptData:
     merchant_name: str
     merchant_address: str
-    date: str                       # ISO-8601 when parseable, raw string otherwise
+    date: str
     time: str
     items: list[LineItem]
     subtotal: float
@@ -74,7 +74,10 @@ class ReceiptData:
 
     @property
     def languages(self) -> list[str]:
-        return sorted({item.language for item in self.items})
+        langs = {item.language for item in self.items}
+        langs.discard("und")   # remove fallback language
+        return sorted(langs)
+
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -136,9 +139,16 @@ class ProcessResult:
 Below is a numbered list of item labels from a receipt. Many are abbreviated,
 use brand shorthand, or contain store codes.
 
-Your task: for each label produce a plain-language rewrite in English using the format:
-  "Description of item (Brand)"
-Omit the brand parenthetical if no brand is identifiable from the label.
+Your task: for each label, produce a plain-language rewrite ONLY if the label
+is clearly truncated or abbreviated.
+
+RULES:
+- If the label is already a complete, normal phrase, return it EXACTLY as-is, character by character.
+- DO NOT add explanations, descriptions, parentheticals, or clarifications.
+- DO NOT guess ingredients, brands, or categories.
+- DO NOT add anything that was not explicitly present in the original text.
+- Only expand abbreviations or obvious truncations (e.g., "GRL STK W SLD" → "Grilled steak with salad").
+- If unsure, return the original label unchanged.
 
 If you genuinely cannot identify what the item is (e.g. a pure numeric PLU code,
 an internal store SKU, or too ambiguous), set interpreted to false and copy the
@@ -267,7 +277,6 @@ def _strip_fences(raw: str) -> str:
 
 
 def _assistant_text(response: models.ChatCompletionResponse) -> str:
-    """Normalize chat completion content to a plain string (mistralai 1.x)."""
     content = response.choices[0].message.content
     if content is UNSET or content is None:
         return ""
@@ -279,31 +288,6 @@ def _assistant_text(response: models.ChatCompletionResponse) -> str:
         if isinstance(text, str):
             parts.append(text)
     return "".join(parts).strip()
-
-
-def _call_mistral_vision(
-    client: Mistral,
-    system: str,
-    b64: str,
-    media_type: str,
-    user_text: str,
-) -> str:
-    data_uri = f"data:{media_type};base64,{b64}"
-    response = client.chat.complete(
-        model=VISION_MODEL,
-        messages=[
-            {"role": "system", "content": system},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image_url", "image_url": {"url": data_uri}},
-                    {"type": "text", "text": user_text},
-                ],
-            },
-        ],
-        max_tokens=MAX_TOKENS,
-    )
-    return _assistant_text(response)
 
 
 def _call_mistral_text(
@@ -346,26 +330,176 @@ def _verify_total(data: ReceiptData) -> bool:
     )
     return strategy_a or strategy_b
 
+# ── script segmentation helpers ───────────────────────────────────────────────
 
-# ── pipeline steps ────────────────────────────────────────────────────────────
+def _char_script(ch: str) -> str:
+    code = ord(ch)
 
-def _step1_detect_receipt(
-    client: Mistral, b64: str, media_type: str
+    # Latin
+    if (
+        0x0041 <= code <= 0x005A
+        or 0x0061 <= code <= 0x007A
+        or 0x00C0 <= code <= 0x024F
+    ):
+        return "Latin"
+
+    # Arabic
+    if (
+        0x0600 <= code <= 0x06FF
+        or 0x0750 <= code <= 0x077F
+        or 0x08A0 <= code <= 0x08FF
+        or 0xFB50 <= code <= 0xFDFF
+        or 0xFE70 <= code <= 0xFEFF
+    ):
+        return "Arabic"
+
+    # Cyrillic
+    if 0x0400 <= code <= 0x04FF or 0x0500 <= code <= 0x052F:
+        return "Cyrillic"
+
+    # Greek
+    if 0x0370 <= code <= 0x03FF:
+        return "Greek"
+
+    # Hebrew
+    if 0x0590 <= code <= 0x05FF:
+        return "Hebrew"
+
+    # Devanagari
+    if 0x0900 <= code <= 0x097F:
+        return "Devanagari"
+
+    # Thai
+    if 0x0E00 <= code <= 0x0E7F:
+        return "Thai"
+
+    # CJK Unified Ideographs (Han)
+    if 0x4E00 <= code <= 0x9FFF:
+        return "Han"
+
+    # Hiragana
+    if 0x3040 <= code <= 0x309F:
+        return "Hiragana"
+
+    # Katakana
+    if 0x30A0 <= code <= 0x30FF:
+        return "Katakana"
+
+    # Common (digits, punctuation, whitespace, symbols)
+    return "Common"
+
+
+def _segment_by_script(text: str) -> dict[str, str]:
+    """
+    Segment text into script-homogeneous buckets.
+    'Common' characters (digits, punctuation, whitespace) are merged into the
+    nearest non-Common script (Option B).
+    """
+    buffers: dict[str, list[str]] = {}
+    last_script: Optional[str] = None
+
+    for ch in text:
+        script = _char_script(ch)
+        if script == "Common":
+            if last_script is None:
+                continue
+            buffers.setdefault(last_script, []).append(ch)
+        else:
+            last_script = script
+            buffers.setdefault(script, []).append(ch)
+
+    return {
+        script: "".join(chars).strip()
+        for script, chars in buffers.items()
+        if "".join(chars).strip()
+    }
+
+
+# ── OCR ───────────────────────────────────────────────────────────────────────
+
+def _run_ocr(client: Mistral, image_path: Path) -> str:
+    """
+    OCR pipeline for mistralai 1.12.4:
+    - Convert local file to data URL
+    - Pass via DocumentURLChunk(document_url=..., type="document_url")
+    - Call client.ocr.process(model=..., document=...)
+    - Extract text from resp.pages[0].markdown
+    """
+    with open(image_path, "rb") as f:
+        data = f.read()
+
+    ext = image_path.suffix.lower()
+    mime = "image/png" if ext == ".png" else "image/jpeg"
+    b64 = base64.b64encode(data).decode("utf-8")
+    data_url = f"data:{mime};base64,{b64}"
+
+    chunk = models.DocumentURLChunk(
+        document_url=data_url,
+        type="document_url",
+    )
+
+    resp = client.ocr.process(
+        model=VISION_MODEL,
+        document=chunk,
+    )
+
+    if not resp.pages:
+        raise RuntimeError("OCR returned no pages")
+
+    page = resp.pages[0]
+    if not page.markdown:
+        raise RuntimeError("OCR returned no markdown text")
+
+    return page.markdown
+
+
+# ── multilingual receipt classifier ───────────────────────────────────────────
+
+def _step1_detect_receipt_from_text(
+    client: Mistral, ocr_text: str
 ) -> tuple[bool, str]:
+    """
+    Detection based purely on OCR text (no vision chat).
+    Multilingual-aware: receipts can be in any script/language.
+    """
     system = (
-        "You are a receipt-detection assistant. "
+        "You are a classifier that decides whether OCR text comes from a receipt. "
         "Respond ONLY with a JSON object – no prose, no markdown fences."
     )
-    prompt = (
-        "Examine this image and answer three questions:\n"
-        "1. is_receipt: is this clearly a photo of a paper/digital receipt or invoice? (true/false)\n"
-        "2. quality_ok: is the text legible – not blurry, not cut off, not too dark/bright, "
-        "no critical numbers obscured? (true/false)\n"
-        "3. quality_issue: if quality_ok is false, describe concisely what is wrong. "
-        "Empty string when quality_ok is true.\n\n"
-        'Return ONLY: {"is_receipt": bool, "quality_ok": bool, "quality_issue": string}'
-    )
-    raw = _call_mistral_vision(client, system, b64, media_type, prompt)
+    prompt = f"""
+You are given raw OCR text extracted from an image.
+
+Receipts can appear in ANY language and ANY script, including Arabic, Chinese,
+Japanese, Cyrillic, Hebrew, Thai, Hindi, etc. Right‑to‑left text and non‑Western
+numerals (e.g. Arabic‑Indic digits) are valid. In case of right-to-left text, be
+aware of the pattern
+price1 label1
+price2 label2
+...
+total_price "TOTAL"
+in which case pair each label with the price in its row, i.e. right before, not
+with price right after.
+
+Decide:
+1. is_receipt: true if this looks like a purchase receipt or invoice in ANY
+   language (merchant name, line items, prices, totals, dates, etc.).
+2. quality_ok: true if the text seems sufficiently complete and legible to
+   reliably read items and totals; false if large parts are missing, garbled,
+   or clearly truncated.
+3. quality_issue: if quality_ok is false, briefly describe the main issue.
+   Use an empty string when quality_ok is true.
+
+OCR_TEXT:
+\"\"\"{ocr_text[:8000]}\"\"\"
+
+Return ONLY:
+{{
+  "is_receipt": bool,
+  "quality_ok": bool,
+  "quality_issue": string
+}}
+"""
+    raw = _call_mistral_text(client, prompt, system=system)
     result = _parse_json_block(raw)
     is_receipt = bool(result.get("is_receipt", False))
     quality_ok = bool(result.get("quality_ok", True))
@@ -373,15 +507,26 @@ def _step1_detect_receipt(
     return is_receipt, ("" if quality_ok else quality_issue)
 
 
-def _step2_ocr_extract(
-    client: Mistral, b64: str, media_type: str
+# ── strict, non‑hallucinating structuring ─────────────────────────────────────
+
+
+def _step2_structure_from_text(
+    client: Mistral, ocr_text: str
 ) -> ReceiptData:
+    """
+    Use the text model to structure OCR text into ReceiptData.
+    STRICT EXTRACTIVE VERSION — no guessing, no reordering, no inference.
+    """
     system = (
-        "You are an expert receipt OCR engine. "
-        "Extract every piece of information from the receipt image. "
+        "You are an expert receipt parser. "
+        "You receive raw OCR text and must extract a structured JSON object. "
+        "You MUST be strictly extractive. "
         "Respond ONLY with a single valid JSON object – no prose, no markdown."
     )
+
     schema_hint = """
+Target JSON schema:
+
 {
   "merchant_name": "string",
   "merchant_address": "string",
@@ -394,8 +539,8 @@ def _step2_ocr_extract(
       "quantity": number,
       "unit_price": number,
       "total_price": number,
-      "notes": "string (discounts, modifiers, etc.) or empty",
-      "language": "BCP-47 tag for the language of this specific label"
+      "notes": "string",
+      "language": "und"
     }
   ],
   "subtotal": number,
@@ -403,45 +548,123 @@ def _step2_ocr_extract(
   "vat_amount": number or null,
   "tip": number or null,
   "total": number,
-  "raw_text": "full verbatim text of the receipt as a single string"
+  "raw_text": "full verbatim text"
 }
 
-Rules:
-- All prices are plain numbers (no currency symbols).
-- If a tip was hand-written or added at the end, include it as a regular item
-  AND also set the top-level "tip" field.
-- If a field is genuinely absent on the receipt, use null.
-- Do NOT invent or guess values; transcribe only what is visible.
-- For "language" on each item: identify the language of that specific label.
-  Many receipts mix languages — e.g. items in Slovak but brand names in English.
-  Use "und" if genuinely indeterminate (e.g. a pure numeric code).
+CRITICAL RULES FOR EXTRACTION (NO GUESSING):
+- DO NOT infer, compute, or guess ANY numeric value.
+- DO NOT reorder numbers.
+- DO NOT normalize or “fix” the receipt.
+- Use ONLY numbers that appear explicitly in the OCR text.
+
+ITEM EXTRACTION RULES:
+1. If a line has exactly one price-like number:
+     → quantity = 1
+     → unit_price = total_price = that number
+
+2. If a line has a name and a price on the same line:
+     → treat that price as total_price
+     → quantity = 1
+     → unit_price = total_price
+
+3. MULTI-LINE ITEMS (e.g.):
+       DARK CHOCOLATE *
+       2   £0.95      1.90
+   - Treat both lines as ONE item.
+   - quantity = leftmost integer on the second line
+   - unit_price = first price-like number on the second line
+   - total_price = rightmost price-like number on the second line
+
+4. If a line has multiple numbers but their meaning is ambiguous:
+     → quantity = 1
+     → total_price = rightmost price
+     → unit_price = total_price
+
+5. NEVER compute unit_price = total_price / quantity.
+6. NEVER move numbers between items.
+7. If unsure, fall back to:
+     → quantity = 1
+     → unit_price = total_price
+     → notes = "".
+
+LANGUAGE RULE:
+- Assign "und" (undetermined) to each language field--the actual value will be assigned later.
 """
-    raw = _call_mistral_vision(
-        client,
-        system,
-        b64,
-        media_type,
-        f"Extract the receipt data into this JSON schema:\n{schema_hint}",
-    )
-    d = _parse_json_block(raw)
-    items = [
-        LineItem(
-            name=i["name"],
-            quantity=float(i.get("quantity", 1)),
-            unit_price=float(i.get("unit_price", i.get("total_price", 0))),
-            total_price=float(i["total_price"]),
-            notes=i.get("notes", ""),
-            language=str(i.get("language", "und")),
+
+    prompt = f"""
+You are given raw OCR text from a receipt.
+
+OCR_TEXT:
+\"\"\"{ocr_text[:8000]}\"\"\"
+
+Using ONLY this text and following the STRICT extraction rules below,
+produce the JSON object.
+
+{schema_hint}
+"""
+
+    raw = _call_mistral_text(client, prompt, system=system)
+
+    try:
+        d = _parse_json_block(raw)
+    except Exception as exc:
+        raise RuntimeError(f"Structuring LLM returned invalid JSON: {exc}\nRAW:\n{raw}")
+
+    def _safe_float(x):
+        try:
+            if x is None:
+                return None
+            if isinstance(x, (int, float)):
+                return float(x)
+            s = str(x).strip()
+            if not s:
+                return None
+            return float(s)
+        except Exception:
+            return None
+
+    items: list[LineItem] = []
+    for i in d.get("items", []):
+        raw_qty = i.get("quantity")
+        raw_unit = i.get("unit_price")
+        raw_total = i.get("total_price")
+
+        qty = _safe_float(raw_qty)
+        unit = _safe_float(raw_unit)
+        total = _safe_float(raw_total)
+
+        if total is None and unit is not None and qty is not None:
+            total = unit * qty
+
+        if total is None and unit is None:
+            total = 0.0
+            unit = 0.0
+            qty = 1.0
+
+        if unit is None:
+            unit = total
+
+        if qty is None:
+            qty = 1.0
+
+        items.append(
+            LineItem(
+                name=i["name"],
+                quantity=qty,
+                unit_price=unit,
+                total_price=total,
+                notes=i.get("notes", ""),
+                language="und",#str(i.get("language", "und")),
+            )
         )
-        for i in d.get("items", [])
-    ]
+
     return ReceiptData(
         merchant_name=d.get("merchant_name", ""),
         merchant_address=d.get("merchant_address", ""),
         date=d.get("date", ""),
         time=d.get("time", ""),
         items=items,
-        subtotal=float(d.get("subtotal", 0)),
+        subtotal=float(d.get("subtotal", 0) or 0),
         vat_rate_pct=float(d["vat_rate_pct"])
         if d.get("vat_rate_pct") is not None
         else None,
@@ -449,12 +672,156 @@ Rules:
         if d.get("vat_amount") is not None
         else None,
         tip=float(d["tip"]) if d.get("tip") is not None else None,
-        total=float(d.get("total", 0)),
+        total=float(d.get("total", 0) or 0),
         currency=d.get("currency", ""),
         ocr_sum_verified=False,
-        raw_text=d.get("raw_text", ""),
+        raw_text=ocr_text,
     )
 
+# ── script‑aware language refinement ───────────────────────────────────────────
+
+def _step2b_refine_item_languages(
+    client: Mistral,
+    data: ReceiptData,
+) -> None:
+    """
+    Post-processing language refinement (script-aware):
+
+    1. Segment raw_text into script-homogeneous blocks (Arabic, Latin, etc.),
+       merging 'Common' characters into the nearest script.
+    2. For each script block, detect all languages present.
+    3. Merge all detected languages into a global set.
+    4. For each item label, decide which of the global languages it fits.
+       If none fit (brand name / garbled / code), leave as 'und'.
+    """
+    if not data.items:
+        return
+
+    # 1) Segment by script
+    script_blocks = _segment_by_script(data.raw_text)
+    if not script_blocks:
+        return
+
+    # 2) Detect languages per script block
+    system = (
+        "You are a language detector. "
+        "Respond ONLY with a JSON array of ISO 639-1 language codes, no prose."
+    )
+    global_langs: set[str] = set()
+
+    for script_name, script_text in script_blocks.items():
+        if not script_text:
+            continue
+
+        prompt_global = f"""
+Detect ALL natural languages that appear anywhere in the following OCR text block.
+
+Important:
+- Include languages even if they appear only in short fragments.
+- Do NOT return only the dominant language; return every language that appears.
+- Return a JSON array of ISO 639-1 codes, e.g. ["ar"], ["ar","en"].
+
+Script: {script_name}
+
+TEXT_BLOCK:
+\"\"\"{script_text[:4000]}\"\"\"
+"""
+        raw_global = _call_mistral_text(client, prompt_global, system=system)
+        cleaned_global = _strip_fences(raw_global)
+        start_g, end_g = cleaned_global.find("["), cleaned_global.rfind("]") + 1
+        if start_g == -1 or end_g == 0:
+            continue
+
+        try:
+            langs = json.loads(cleaned_global[start_g:end_g])
+        except Exception:
+            continue
+
+        if isinstance(langs, list):
+            for l in langs:
+                s = str(l).strip()
+                if s and s != "und":
+                    global_langs.add(s)
+
+    # Fallback if nothing detected
+    if not global_langs:
+        global_lang_list = []
+    else:
+        global_lang_list = sorted(global_langs)
+
+    # 3) Per-item refinement
+    items_payload = [
+        {"index": i, "name": item.name, "current_language": item.language}
+        for i, item in enumerate(data.items)
+    ]
+    if not global_lang_list:
+        for item in data.items:
+            item.language = "und"
+        return
+
+    prompt_items = f"""
+You are refining language tags for receipt line items.
+
+You are given:
+- A list of global languages detected in the receipt (ISO 639-1 codes).
+- A list of item labels with indices and their current language tags.
+
+Your task:
+For each item label:
+1. Decide whether the label is a valid phrase in ANY of the global languages.
+2. If the label clearly fits exactly one of the global languages, assign that language.
+Be lenient--if the language isn't obvious, go through the global languages in order
+and if for any the label could conceivably be a phrase, even as a loanword or an
+uncommon phrase, choose that language and proceed. Choose the first language in the
+list if the label is a globally recognisable phrase, such as the name of a common
+food item ("Latte", "Lasagna", "Sushi" etc) or other universal phrase.
+3. If the label could fit multiple global languages, choose the most likely one.
+4. If the label does NOT fit any of the global languages (e.g. brand name, code,
+   abbreviation, or ambiguous), assign "und".
+5. Do NOT use languages that are not in the global list.
+6. Do NOT return "und" as a global language — only as a fallback for individual items.
+
+Global languages:
+{json.dumps(global_lang_list)}
+
+Items:
+{json.dumps(items_payload, ensure_ascii=False, indent=2)}
+
+Return a JSON array with exactly {len(items_payload)} objects:
+[
+  {{"index": 0, "language": "en"}},
+  ...
+]
+"""
+
+
+    raw_items = _call_mistral_text(client, prompt_items, system=system)
+    cleaned_items = _strip_fences(raw_items)
+    start_i, end_i = cleaned_items.find("["), cleaned_items.rfind("]") + 1
+    if start_i == -1 or end_i == 0:
+        return
+
+    try:
+        entries = json.loads(cleaned_items[start_i:end_i])
+    except Exception:
+        return
+
+    # Apply refined languages
+    for e in entries:
+        try:
+            idx = int(e["index"])
+            lang = str(e.get("language", "")).strip()
+        except Exception:
+            continue
+
+        if 0 <= idx < len(data.items):
+            if not lang:
+                continue
+            if lang not in global_lang_list and lang != "und":
+                continue
+            data.items[idx].language = lang
+
+# ── saving ─────────────────────────────────────────────────────────────────────
 
 def _step3_save(data: ReceiptData, image_path: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -466,7 +833,7 @@ def _step3_save(data: ReceiptData, image_path: Path, output_dir: Path) -> Path:
     return json_path
 
 
-# ── public entry point ────────────────────────────────────────────────────────
+# ── main pipeline ─────────────────────────────────────────────────────────────
 
 def process_receipt(
     image_path: str | Path, output_dir: str | Path = "."
@@ -478,36 +845,55 @@ def process_receipt(
         return ProcessResult(ok=False, reason=f"File not found: {image_path}")
 
     try:
-        mt = _media_type(image_path)
+        _ = _media_type(image_path)
     except ValueError as exc:
         return ProcessResult(ok=False, reason=str(exc))
 
     client = Mistral(api_key=_require_mistral_api_key())
-    b64 = _encode_image(image_path)
 
+    # 1) OCR
     try:
-        is_receipt, quality_issue = _step1_detect_receipt(client, b64, mt)
+        ocr_text = _run_ocr(client, image_path)
+        #ocr_text = _pair_prices_with_arabic_labels(ocr_text)
+        #ocr_text = _normalize_rtl_lines(ocr_text)
+    except Exception as exc:
+        return ProcessResult(ok=False, reason=f"OCR step failed: {exc}")
+
+    # 2) Detection
+    try:
+        is_receipt, quality_issue = _step1_detect_receipt_from_text(client, ocr_text)
     except Exception as exc:
         return ProcessResult(ok=False, reason=f"Detection step failed: {exc}")
 
     if not is_receipt:
         return ProcessResult(
             ok=False,
-            reason="The image does not appear to be a receipt. Please retake the photo.",
+            reason="The image does not appear to be a receipt based on OCR text. "
+                   "Please retake the photo.",
         )
+
     if quality_issue:
         return ProcessResult(
             ok=False,
-            reason=f"Image quality issue — {quality_issue}. Please retake the photo.",
+            reason=f"Image/OCR quality issue — {quality_issue}. Please retake the photo.",
         )
 
+    # 3) Structuring
     try:
-        receipt_data = _step2_ocr_extract(client, b64, mt)
+        receipt_data = _step2_structure_from_text(client, ocr_text)
     except Exception as exc:
-        return ProcessResult(ok=False, reason=f"OCR extraction failed: {exc}")
+        return ProcessResult(ok=False, reason=f"Structuring failed: {exc}")
 
+    # 4) Script-aware language refinement
+    try:
+        _step2b_refine_item_languages(client, receipt_data)
+    except Exception:
+        pass
+
+    # 5) Verify totals
     receipt_data.ocr_sum_verified = _verify_total(receipt_data)
 
+    # 6) Save JSON
     try:
         json_path = _step3_save(receipt_data, image_path, output_dir)
     except Exception as exc:
@@ -516,7 +902,7 @@ def process_receipt(
     return ProcessResult(ok=True, data=receipt_data, json_path=json_path)
 
 
-# ── CLI smoke-test ────────────────────────────────────────────────────────────
+# ── CLI runner ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import sys
@@ -545,7 +931,10 @@ if __name__ == "__main__":
 
     print("\n── Items with detected languages:")
     for i, item in enumerate(d.items):
-        print(f"  [{i}] ({item.language}) {item.name!r}")
+        print(
+            f"  [{i}] ({item.language}) {item.name!r} "
+            f"({item.unit_price}) x {item.quantity} ---> {item.total_price}"
+        )
 
     print("\n── Interpreting labels …")
     interpreted = result.interpret_labels()
