@@ -369,25 +369,25 @@ def test_simplified_debt_matrix_cents_complex() -> None:
         {
             "type": "evenly",
             "amount": 100,
-            "participant_user_ids":  [B, C],
+            "participant_user_ids": [B, C],
             "paid_by_user_id": A,
         },
         {
             "type": "evenly",
             "amount": 300,
-            "participant_user_ids":  [A, B, C],
+            "participant_user_ids": [A, B, C],
             "paid_by_user_id": A,
         },
         {
             "type": "evenly",
             "amount": 100,
-            "participant_user_ids":  [B, C],
+            "participant_user_ids": [B, C],
             "paid_by_user_id": C,
         },
         {
             "type": "evenly",
             "amount": 90,
-            "participant_user_ids":  [E, D],
+            "participant_user_ids": [E, D],
             "paid_by_user_id": E,
         },
     ]
