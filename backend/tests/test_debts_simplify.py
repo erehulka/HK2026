@@ -362,6 +362,50 @@ def test_simplified_debt_matrix_cents_four_person_mesh() -> None:
     assert matrix[ia][ic] == matrix[ia][id_] == matrix[ib][ic] == 0
     _assert_matrix_matches_expected_nets(matrix, member_ids, expense_docs)
 
+def test_simplified_debt_matrix_cents_complex() -> None:
+    gid = ObjectId()
+    A, B, C, D, E, F = ObjectId(), ObjectId(), ObjectId(), ObjectId(), ObjectId(), ObjectId()
+    expense_docs = [
+        {
+            "type": "evenly",
+            "amount": 100,
+            "participant_user_ids":  [B, C],
+            "paid_by_user_id": A,
+        },
+        {
+            "type": "evenly",
+            "amount": 300,
+            "participant_user_ids":  [A, B, C],
+            "paid_by_user_id": A,
+        },
+        {
+            "type": "evenly",
+            "amount": 100,
+            "participant_user_ids":  [B, C],
+            "paid_by_user_id": C,
+        },
+        {
+            "type": "evenly",
+            "amount": 90,
+            "participant_user_ids":  [E, D],
+            "paid_by_user_id": E,
+        },
+    ]
+    db = FakeDatabase(
+        group_id=gid,
+        member_user_ids=[A, B, C, D, E, F],
+        expense_docs=expense_docs,
+    )
+    member_ids, matrix = simplified_debt_matrix_cents(str(gid), db)
+    ia, ib, ic, id_, ie, if_ = (member_ids.index(str(x)) for x in (A, B, C, D, E, F))
+    for i in range(6):
+        assert matrix[i][if_] == 0
+        assert matrix[ia][i] == 0
+    assert matrix[ie][id_] == 0
+    assert matrix[id_][ie] == 45
+    assert matrix[ib][ic] == 0
+    assert matrix[ib][ia] == 200
+    assert matrix[ic][ia] == 100
 
 def test_simplified_debt_matrix_raises_when_group_missing() -> None:
     gid = ObjectId()
