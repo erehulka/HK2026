@@ -5,7 +5,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MOCK_FRIENDS } from "@/constants/mock-friends";
-import { getGroupById } from "@/constants/mock-groups";
+import { getGroupById, getGroupMembers } from "@/constants/mock-groups";
 import {
   computeUserBalanceEffect,
   getPaymentsForGroup,
@@ -56,9 +56,19 @@ export default function GroupDetailScreen() {
           <Text className="text-[28px] font-bold text-app-text flex-1 pr-3">
             {group.name}
           </Text>
-          <Pressable className="w-10 h-10 rounded-full bg-app-surface border border-app-border items-center justify-center">
-            <Ionicons name="settings-outline" size={20} color="#d7e6ff" />
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => router.push(`/group/${id}/members`)}
+              className="h-10 px-3 rounded-full bg-app-surface border border-app-border items-center justify-center"
+            >
+              <Text className="text-app-text font-semibold text-[13px]">
+                {getGroupMembers(id).length} users
+              </Text>
+            </Pressable>
+            <Pressable className="w-10 h-10 rounded-full bg-app-surface border border-app-border items-center justify-center">
+              <Ionicons name="settings-outline" size={20} color="#d7e6ff" />
+            </Pressable>
+          </View>
         </View>
 
         <View className="flex-row gap-3 items-stretch">
