@@ -1,132 +1,145 @@
-"""Pydantic models for group expenses stored in MongoDB `expenses` collection."""
+"""Pydantic models for Splitwise-style expenses and items."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class ExpenseSplitType(str, Enum):
-    """How the expense is split across participants."""
-
-    EVENLY = "evenly"
-
-
-def _amount_cents_from_mongo(value: Any) -> int:
-    """Read stored expense total as integer euro cents."""
+def _amount_from_mongo(value: Any, *, field: str) -> int:
+    """Read stored monetary value as integer cents."""
     if type(value) is bool:
-        msg = "amount must not be a boolean"
+        msg = f"{field} must not be a boolean"
         raise TypeError(msg)
     if isinstance(value, int):
         return value
-    msg = f"Unsupported amount type: {type(value)}"
+    msg = f"Unsupported {field} type: {type(value)}"
     raise TypeError(msg)
 
 
-# TODO: Expenses should not have a persisted or request-level root `amount`; the
-# total should be calculated as the sum of line-item amounts (each in euro cents)
-# once `items` exist.
+def _ensure_int_amount(v: object, *, field: str) -> object:
+    if isinstance(v, bool):
+        raise ValueError(f"{field} must be an integer (euro cents), not a boolean")
+    if isinstance(v, float):
+        raise ValueError(f"{field} must be an integer (euro cents), not a float")
+    return v
 
 
-class ExpenseCreate(BaseModel):
-    """Body for creating an expense in a group."""
+class ItemShareCreate(BaseModel):
+    """How much a user owes for one item."""
 
+    user_id: str = Field(..., description="User sharing this item")
     amount: Annotated[
         int,
         Field(
             gt=0,
             le=10**15,
-            description="Total amount in euro cents (100 = €1.00)",
+            description="Share amount in euro cents (100 = €1.00)",
         ),
     ]
-    participant_user_ids: list[str] = Field(
-        ...,
-        min_length=1,
-        description="Users sharing this expense; must be members of the group",
-    )
-    paid_by_user_id: str = Field(..., description="User who paid; must be among participants")
-    type: ExpenseSplitType = Field(
-        default=ExpenseSplitType.EVENLY,
-        description="Split strategy",
-    )
-    items: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Line items (unsupported for now; must be empty)",
-    )
 
     @field_validator("amount", mode="before")
     @classmethod
     def amount_integer_cents(cls, v: object) -> object:
-        if isinstance(v, bool):
-            raise ValueError("amount must be an integer (euro cents), not a boolean")
-        if isinstance(v, float):
-            raise ValueError("amount must be an integer (euro cents), not a float")
+        return _ensure_int_amount(v, field="amount")
+
+
+class ItemCreate(BaseModel):
+    """Body for creating an item under an expense."""
+
+    description: str = Field(..., min_length=1, max_length=5000)
+    amount: Annotated[
+        int,
+        Field(
+            gt=0,
+            le=10**15,
+            description="Item amount in euro cents (100 = €1.00)",
+        ),
+    ]
+    shares: list[ItemShareCreate] = Field(
+        ...,
+        min_length=1,
+        description="Shares for this item",
+    )
+    paid_by: str = Field(..., description="User who paid this item")
+    created_by: str = Field(..., description="User who created this item")
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def strip_description(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.strip()
         return v
 
-    @field_validator("participant_user_ids")
+    @field_validator("amount", mode="before")
     @classmethod
-    def no_duplicate_participants(cls, v: list[str]) -> list[str]:
-        if len(set(v)) != len(v):
-            raise ValueError("participant_user_ids must be unique")
+    def amount_integer_cents(cls, v: object) -> object:
+        return _ensure_int_amount(v, field="amount")
+
+    @field_validator("shares")
+    @classmethod
+    def no_duplicate_share_users(cls, v: list[ItemShareCreate]) -> list[ItemShareCreate]:
+        ids = [s.user_id for s in v]
+        if len(set(ids)) != len(ids):
+            raise ValueError("shares.user_id must be unique per item")
         return v
 
-    @field_validator("items")
+
+class ItemShareOut(BaseModel):
+    """Share returned to clients for a stored item."""
+
+    user_id: str
+    amount: int
+
+
+class ItemOut(BaseModel):
+    """Item returned to clients."""
+
+    id: str
+    expense_id: str
+    description: str
+    amount: int
+    shares: list[ItemShareOut]
+    paid_by: str
+    created_at: datetime
+    updated_at: datetime
+    created_by: str
+
+
+class ExpenseCreate(BaseModel):
+    """Body for creating an expense in a group."""
+
+    description: str = Field(..., min_length=1, max_length=5000)
+    created_by: str = Field(..., description="User who created the expense")
+    items: list[ItemCreate] = Field(
+        default_factory=list,
+        description="Items to create with this expense",
+    )
+
+    @field_validator("description", mode="before")
     @classmethod
-    def items_must_be_empty(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        if v:
-            raise ValueError("items must be empty for now")
+    def strip_description(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.strip()
         return v
+
 
 
 class ExpenseUpdate(BaseModel):
     """Partial update for an expense (PATCH)."""
 
-    amount: Annotated[
-        Optional[int],
-        Field(
-            default=None,
-            gt=0,
-            le=10**15,
-            description="Total amount in euro cents (100 = €1.00)",
-        ),
-    ] = None
-    participant_user_ids: Optional[list[str]] = Field(
-        default=None,
-        min_length=1,
-        description="Users sharing this expense; must be members of the group",
-    )
-    paid_by_user_id: Optional[str] = None
-    type: Optional[ExpenseSplitType] = None
-    items: Optional[list[dict[str, Any]]] = None
+    description: str | None = Field(default=None, min_length=1, max_length=5000)
+    created_by: str | None = None
 
-    @field_validator("amount", mode="before")
+    @field_validator("description", mode="before")
     @classmethod
-    def amount_integer_cents(cls, v: object) -> object:
+    def strip_description(cls, v: object) -> object:
         if v is None:
             return v
-        if isinstance(v, bool):
-            raise ValueError("amount must be an integer (euro cents), not a boolean")
-        if isinstance(v, float):
-            raise ValueError("amount must be an integer (euro cents), not a float")
-        return v
-
-    @field_validator("participant_user_ids")
-    @classmethod
-    def no_duplicate_participants(cls, v: Optional[list[str]]) -> Optional[list[str]]:
-        if v is None:
-            return v
-        if len(set(v)) != len(v):
-            raise ValueError("participant_user_ids must be unique")
-        return v
-
-    @field_validator("items")
-    @classmethod
-    def items_must_be_empty(cls, v: Optional[list[dict[str, Any]]]) -> Optional[list[dict[str, Any]]]:
-        if v is not None and len(v) > 0:
-            raise ValueError("items must be empty for now")
+        if isinstance(v, str):
+            return v.strip()
         return v
 
 
@@ -135,25 +148,46 @@ class ExpenseOut(BaseModel):
 
     id: str
     group_id: str
-    amount: int = Field(description="Total amount in euro cents (100 = €1.00)")
-    participant_user_ids: list[str]
-    paid_by_user_id: str
-    type: ExpenseSplitType
-    items: list[dict[str, Any]]
+    description: str
+    total_amount: int = Field(description="Total amount in euro cents (100 = €1.00)")
+    created_by: str
+    participants: list[str]
+    items: list[str]
     created_at: datetime
     updated_at: datetime
+
+
+def item_document_to_out(doc: dict) -> ItemOut:
+    """Map a MongoDB item document to `ItemOut`."""
+    return ItemOut(
+        id=str(doc["_id"]),
+        expense_id=str(doc["expenseId"]),
+        description=doc["description"],
+        amount=_amount_from_mongo(doc["amount"], field="amount"),
+        shares=[
+            ItemShareOut(
+                user_id=str(share["userId"]),
+                amount=_amount_from_mongo(share["amount"], field="shares.amount"),
+            )
+            for share in doc["shares"]
+        ],
+        paid_by=str(doc["paidBy"]),
+        created_at=doc["createdAt"],
+        updated_at=doc["updatedAt"],
+        created_by=str(doc["createdBy"]),
+    )
 
 
 def expense_document_to_out(doc: dict) -> ExpenseOut:
     """Map a MongoDB expense document to `ExpenseOut`."""
     return ExpenseOut(
         id=str(doc["_id"]),
-        group_id=str(doc["group_id"]),
-        amount=_amount_cents_from_mongo(doc["amount"]),
-        participant_user_ids=[str(uid) for uid in doc["participant_user_ids"]],
-        paid_by_user_id=str(doc["paid_by_user_id"]),
-        type=ExpenseSplitType(doc["type"]),
-        items=list(doc.get("items") or []),
-        created_at=doc["created_at"],
-        updated_at=doc["updated_at"],
+        group_id=str(doc["groupId"]),
+        description=doc["description"],
+        total_amount=_amount_from_mongo(doc["totalAmount"], field="totalAmount"),
+        created_by=str(doc["createdBy"]),
+        participants=[str(uid) for uid in doc.get("participantUserIds", [])],
+        items=[str(item_id) for item_id in doc.get("items", [])],
+        created_at=doc["createdAt"],
+        updated_at=doc["updatedAt"],
     )

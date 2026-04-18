@@ -1,8 +1,8 @@
 ### NOTES/requirements
 
 db:
-- groups (id, users, )
-- user
+- groups (name, desc, users, type, )
+- user (name, )
 - payment
 - subpayment
 

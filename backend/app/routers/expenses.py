@@ -14,7 +14,7 @@ from app.mongo_ids import parse_object_id
 from app.schemas.expense import (
     ExpenseCreate,
     ExpenseOut,
-    ExpenseSplitType,
+    ItemCreate,
     ExpenseUpdate,
     expense_document_to_out,
 )
@@ -37,33 +37,64 @@ def _member_ids(db: Database, gid: ObjectId) -> set[ObjectId]:
     }
 
 
-def _parse_object_id_list(ids: list[str], *, field: str) -> list[ObjectId]:
-    return [parse_object_id(s, field=field) for s in ids]
-
-
-def _validate_expense_participants(
-    participant_ids: list[ObjectId],
-    payer_id: ObjectId,
+def _validate_membership(
+    user_id: ObjectId,
     members: set[ObjectId],
+    *,
+    field: str,
 ) -> None:
-    if not participant_ids:
+    if user_id not in members:
         raise HTTPException(
             status_code=400,
-            detail="At least one participant is required",
+            detail=f"{field} must be a member of this group",
         )
-    if len(set(participant_ids)) != len(participant_ids):
-        raise HTTPException(status_code=400, detail="Duplicate participants")
-    participant_set = set(participant_ids)
-    if payer_id not in participant_set:
+
+
+def _validate_item_payload(
+    item: ItemCreate,
+    members: set[ObjectId],
+) -> tuple[ObjectId, ObjectId, list[dict]]:
+    paid_by_oid = parse_object_id(item.paid_by, field="paid_by")
+    created_by_oid = parse_object_id(item.created_by, field="created_by")
+    _validate_membership(paid_by_oid, members, field="paid_by")
+    _validate_membership(created_by_oid, members, field="created_by")
+
+    shares: list[dict] = []
+    share_total = 0
+    for share in item.shares:
+        uid = parse_object_id(share.user_id, field="shares.user_id")
+        _validate_membership(uid, members, field="shares.user_id")
+        shares.append({"userId": uid, "amount": share.amount})
+        share_total += share.amount
+
+    if share_total != item.amount:
         raise HTTPException(
             status_code=400,
-            detail="paid_by_user_id must be one of participant_user_ids",
+            detail="item share amounts must sum to item amount",
         )
-    if not participant_set <= members:
-        raise HTTPException(
-            status_code=400,
-            detail="All participants must be members of this group",
-        )
+    return paid_by_oid, created_by_oid, shares
+
+
+def _participant_ids_from_items(item_docs: list[dict]) -> list[ObjectId]:
+    """Build a stable unique participant list from item shares and payers."""
+    seen: set[ObjectId] = set()
+    ordered: list[ObjectId] = []
+    for item in item_docs:
+        paid_by = item["paidBy"]
+        if paid_by not in seen:
+            seen.add(paid_by)
+            ordered.append(paid_by)
+        for share in item["shares"]:
+            uid = share["userId"]
+            if uid not in seen:
+                seen.add(uid)
+                ordered.append(uid)
+    return ordered
+
+
+def _total_amount_from_items(item_docs: list[dict]) -> int:
+    """Compute expense total as the sum of item amounts."""
+    return sum(int(item["amount"]) for item in item_docs)
 
 
 @router.post(
@@ -80,26 +111,53 @@ def create_expense(
     gid = parse_object_id(group_id, field="group_id")
     _require_group(db, gid)
     members = _member_ids(db, gid)
-    participant_oids = _parse_object_id_list(
-        body.participant_user_ids,
-        field="participant_user_ids",
-    )
-    payer_oid = parse_object_id(body.paid_by_user_id, field="paid_by_user_id")
-    _validate_expense_participants(participant_oids, payer_oid, members)
+    created_by_oid = parse_object_id(body.created_by, field="created_by")
+    _validate_membership(created_by_oid, members, field="created_by")
+
+    item_docs: list[dict] = []
+    for item in body.items:
+        paid_by_oid, item_created_by_oid, shares = _validate_item_payload(item, members)
+        item_docs.append(
+            {
+                "description": item.description,
+                "amount": item.amount,
+                "shares": shares,
+                "paidBy": paid_by_oid,
+                "createdBy": item_created_by_oid,
+            }
+        )
+    items_total = _total_amount_from_items(item_docs)
+    participant_oids = _participant_ids_from_items(item_docs)
+
     now = datetime.now(timezone.utc)
-    doc = {
-        "group_id": gid,
-        "amount": body.amount,
-        "participant_user_ids": participant_oids,
-        "paid_by_user_id": payer_oid,
-        "type": body.type.value,
-        "items": body.items,
-        "created_at": now,
-        "updated_at": now,
+    expense_doc = {
+        "groupId": gid,
+        "description": body.description,
+        "totalAmount": items_total,
+        "createdBy": created_by_oid,
+        "participantUserIds": participant_oids,
+        "createdAt": now,
+        "updatedAt": now,
+        "items": [],
     }
-    result = db.expenses.insert_one(doc)
-    doc["_id"] = result.inserted_id
-    return expense_document_to_out(doc)
+    result = db.expenses.insert_one(expense_doc)
+    expense_id = result.inserted_id
+    expense_doc["_id"] = expense_id
+
+    if item_docs:
+        for item_doc in item_docs:
+            item_doc["expenseId"] = expense_id
+            item_doc["createdAt"] = now
+            item_doc["updatedAt"] = now
+        insert_res = db.items.insert_many(item_docs)
+        item_ids = insert_res.inserted_ids
+        db.expenses.update_one(
+            {"_id": expense_id},
+            {"$set": {"items": item_ids, "updatedAt": now}},
+        )
+        expense_doc["items"] = item_ids
+
+    return expense_document_to_out(expense_doc)
 
 
 @router.delete(
@@ -116,7 +174,8 @@ def delete_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    res = db.expenses.delete_one({"_id": eid, "group_id": gid})
+    db.items.delete_many({"expenseId": eid})
+    res = db.expenses.delete_one({"_id": eid, "groupId": gid})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Expense not found")
 
@@ -135,7 +194,7 @@ def update_expense(
     gid = parse_object_id(group_id, field="group_id")
     eid = parse_object_id(expense_id, field="expense_id")
     _require_group(db, gid)
-    existing = db.expenses.find_one({"_id": eid, "group_id": gid})
+    existing = db.expenses.find_one({"_id": eid, "groupId": gid})
     if existing is None:
         raise HTTPException(status_code=404, detail="Expense not found")
     patch = body.model_dump(exclude_unset=True, exclude_none=True)
@@ -143,34 +202,25 @@ def update_expense(
         raise HTTPException(status_code=400, detail="No fields to update")
 
     members = _member_ids(db, gid)
-    participant_oids = (
-        _parse_object_id_list(body.participant_user_ids, field="participant_user_ids")
-        if body.participant_user_ids is not None
-        else list(existing["participant_user_ids"])
-    )
-    payer_oid = (
-        parse_object_id(body.paid_by_user_id, field="paid_by_user_id")
-        if body.paid_by_user_id is not None
-        else existing["paid_by_user_id"]
-    )
-    _validate_expense_participants(participant_oids, payer_oid, members)
+    existing_items = list(db.items.find({"expenseId": eid}))
+    participant_oids = _participant_ids_from_items(existing_items)
+    items_total = _total_amount_from_items(existing_items)
 
     now = datetime.now(timezone.utc)
-    update_doc: dict = {"updated_at": now}
-    if "amount" in patch:
-        update_doc["amount"] = patch["amount"]
-    if "participant_user_ids" in patch:
-        update_doc["participant_user_ids"] = participant_oids
-    if "paid_by_user_id" in patch:
-        update_doc["paid_by_user_id"] = payer_oid
-    if "type" in patch:
-        t = patch["type"]
-        update_doc["type"] = t.value if isinstance(t, ExpenseSplitType) else t
-    if "items" in patch:
-        update_doc["items"] = patch["items"]
+    update_doc: dict = {
+        "updatedAt": now,
+        "participantUserIds": participant_oids,
+        "totalAmount": items_total,
+    }
+    if "description" in patch:
+        update_doc["description"] = patch["description"]
+    if "created_by" in patch:
+        created_by_oid = parse_object_id(patch["created_by"], field="created_by")
+        _validate_membership(created_by_oid, members, field="created_by")
+        update_doc["createdBy"] = created_by_oid
 
     after = db.expenses.find_one_and_update(
-        {"_id": eid, "group_id": gid},
+        {"_id": eid, "groupId": gid},
         {"$set": update_doc},
         return_document=ReturnDocument.AFTER,
     )

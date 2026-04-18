@@ -1,7 +1,6 @@
 from app.schemas.expense import (
     ExpenseCreate,
     ExpenseOut,
-    ExpenseSplitType,
     ExpenseUpdate,
     expense_document_to_out,
 )
@@ -12,7 +11,6 @@ from app.schemas.user import UserCreate, UserOut, user_document_to_out
 __all__ = [
     "ExpenseCreate",
     "ExpenseOut",
-    "ExpenseSplitType",
     "ExpenseUpdate",
     "GroupCreate",
     "GroupMembershipOut",
