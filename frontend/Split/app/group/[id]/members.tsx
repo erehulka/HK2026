@@ -15,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { SimplifiedGroupDebtsOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
-import { MOCK_FRIENDS } from "@/constants/mock-friends";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
 function computeMemberNetBalancesCents(debts: SimplifiedGroupDebtsOut) {
@@ -67,8 +66,14 @@ export default function GroupMembersScreen() {
     enabled: !!id,
   });
   const friendsQuery = useQuery({
-    queryKey: ["users", CURRENT_USER_BACKEND_ID, "friends", "mock"],
-    queryFn: async () => MOCK_FRIENDS,
+    queryKey: ["users", CURRENT_USER_BACKEND_ID, "friends"],
+    queryFn: () =>
+      backendClient.listUserFriendsUsersUserIdFriendsGet(CURRENT_USER_BACKEND_ID),
+    select: (response) =>
+      response.data.map((user) => ({
+        id: user.id,
+        name: user.display_name,
+      })),
     enabled: false,
   });
 
