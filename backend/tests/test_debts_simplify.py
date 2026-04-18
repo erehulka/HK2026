@@ -427,3 +427,16 @@ def test_simplify_matrix_preserves_net_balances_from_gross() -> None:
         incoming = sum(mat[j][i] for j in range(n))
         outgoing = sum(mat[i][j] for j in range(n))
         assert incoming - outgoing == want[i]
+
+
+def test_simplify_matches_largest_debtor_with_largest_creditor_first() -> None:
+    gross = [
+        [0, 0, 0, 5],
+        [0, 0, 4, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+    ]
+    mat = _simplify_from_gross(gross)
+    assert mat[0][3] == 5
+    assert mat[1][2] == 4
+    assert sum(1 for row in mat for value in row if value > 0) == 2

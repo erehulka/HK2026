@@ -1,14 +1,15 @@
 """Group debt simplification: gross IOUs from expenses.
 
 After aggregating evenly-split expenses into a gross IOU matrix, we **simplify** to a smaller
-set of directed debts by matching net debtors to net creditors (greedy by ascending member
-index). This preserves each member's net balance and can introduce a direct arc between two
+set of directed debts by matching largest net debtors to largest net creditors first. This
+preserves each member's net balance and can introduce a direct arc between two
 people who never shared an expense edge (e.g. ``A→C`` when expenses only implied ``A→B`` and
 ``B→C``).
 """
 
 from __future__ import annotations
 
+import heapq
 from typing import TYPE_CHECKING, Union
 
 from bson import ObjectId
@@ -91,33 +92,34 @@ def _simplify_from_gross(gross: list[list[int]]) -> list[list[int]]:
     Reduce debts to a **net-balance** settlement: every net debtor pays net creditors so that
     per-person inflow minus outflow matches the gross IOU aggregate.
 
-    Members with zero net balance have no incident arcs. Pairs are matched greedily in
-    ascending member index order among debtors and among creditors (deterministic, at most
-    one arc per debtor–creditor pair).
+    Members with zero net balance have no incident arcs. Settlement greedily matches the
+    largest net debtor and largest net creditor at each step (Splitwise-style netting); ties
+    break by ascending member index.
     """
     n = len(gross)
     balances = _balances_from_gross_matrix(gross)
     if all(b == 0 for b in balances):
         return [[0] * n for _ in range(n)]
 
-    debtors = [[i, -balances[i]] for i in range(n) if balances[i] < 0]
-    creditors = [[i, balances[i]] for i in range(n) if balances[i] > 0]
-    debtors.sort(key=lambda t: t[0])
-    creditors.sort(key=lambda t: t[0])
+    debtors = [(balances[i], i) for i in range(n) if balances[i] < 0]
+    creditors = [(-balances[i], i) for i in range(n) if balances[i] > 0]
+    heapq.heapify(debtors)
+    heapq.heapify(creditors)
 
     matrix = [[0] * n for _ in range(n)]
-    di = ci = 0
-    while di < len(debtors) and ci < len(creditors):
-        d_i, d_amt = debtors[di]
-        c_i, c_amt = creditors[ci]
+    while debtors and creditors:
+        d_amt_neg, d_i = heapq.heappop(debtors)
+        c_amt_neg, c_i = heapq.heappop(creditors)
+        d_amt = -d_amt_neg
+        c_amt = -c_amt_neg
         x = min(d_amt, c_amt)
         matrix[d_i][c_i] += x
-        debtors[di][1] = d_amt - x
-        creditors[ci][1] = c_amt - x
-        if debtors[di][1] == 0:
-            di += 1
-        if creditors[ci][1] == 0:
-            ci += 1
+        d_rem = d_amt - x
+        c_rem = c_amt - x
+        if d_rem > 0:
+            heapq.heappush(debtors, (-d_rem, d_i))
+        if c_rem > 0:
+            heapq.heappush(creditors, (-c_rem, c_i))
 
     return matrix
 
