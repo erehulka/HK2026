@@ -243,14 +243,6 @@ export interface ReceiptProcessedOut {
      */
     'summary_label': string;
     /**
-     * Merchant or shop name if present
-     */
-    'merchant_name': string;
-    /**
-     * Merchant address if present
-     */
-    'merchant_address': string;
-    /**
      * Purchase date (often YYYY-MM-DD)
      */
     'date': string;
