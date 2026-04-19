@@ -1,0 +1,83 @@
+<!doctype html>
+<title>Charlie Klerq</title>
+
+<style>
+
+.Kline {
+    fill: black;
+}
+
+#Kvert {
+    stroke: black;
+}
+
+</style>
+
+<body>
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Vertical stem (white fill, thinner border) -->
+  <path d="M50 20 H90 V140 H50 Z"
+        fill="white"
+        stroke-width="5"
+        stroke-linejoin="miter" id = "Kvert"/>
+
+  <!-- Upper diagonal arm (thicker, sharper angle, horizontal end caps) -->
+  <path d="
+    M90 70
+    L145 17.5
+    L165 17.5
+    L90 90
+    Z"
+    class = "Kline"/>
+
+  <!-- Lower diagonal arm (thicker, sharper angle, horizontal end caps) -->
+  <path d="
+    M90 90
+    L135 142.5
+    L165 142.5
+    L100 70
+    Z"
+    class = "Kline"/>
+
+  <!-- Receipt interior (centered inside the stem) -->
+  <!-- Inset: x from 56 to 84 -->
+
+  <!-- Line 1 -->
+  <path d="M58 35 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="35" r="1.3" fill="black"/>
+
+  <!-- Line 2 -->
+  <path d="M58 47 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="47" r="1.3" fill="black"/>
+
+  <!-- Line 3 -->
+  <path d="M58 59 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="59" r="1.3" fill="black"/>
+
+  <!-- Line 4 -->
+  <path d="M58 71 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="71" r="1.3" fill="black"/>
+
+  <!-- Line 3 -->
+  <path d="M58 83 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="83" r="1.3" fill="black"/>
+
+  <!-- Line 4 -->
+  <path d="M58 95 H78" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="82" cy="95" r="1.3" fill="black"/>
+
+  <!-- Dashed rule line -->
+  <path d="M57 109 H84"
+        stroke="black"
+        stroke-width="1"
+        stroke-linecap="round"
+        stroke-dasharray="3 3"/>
+
+  <!-- Euro symbols -->
+  <text x="58" y="126" font-family="Verdana" font-size="11" fill="black">&euro; &euro; &euro;</text>
+
+</svg>
+
+
+</body>
