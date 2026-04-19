@@ -71,7 +71,7 @@ export default function GroupDetailScreen() {
     rightName: string;
     amountEur: number;
     amountCents: number;
-    arrow: "→" | "←";
+    arrow: "→";
     debtorId: string;
     creditorId: string;
     debtorName: string;
@@ -190,7 +190,7 @@ export default function GroupDetailScreen() {
       rightName: string;
       amountEur: number;
       amountCents: number;
-      arrow: "→" | "←";
+      arrow: "→";
       debtorId: string;
       creditorId: string;
       debtorName: string;
@@ -203,7 +203,7 @@ export default function GroupDetailScreen() {
       rightName: string;
       amountEur: number;
       amountCents: number;
-      arrow: "→" | "←";
+      arrow: "→";
       debtorId: string;
       creditorId: string;
       debtorName: string;
@@ -224,33 +224,18 @@ export default function GroupDetailScreen() {
         const creditorName = memberNameById.get(creditorId) ?? creditorId;
         const amountEur = Math.abs(netCents) / 100;
 
-        if (debtorName.localeCompare(creditorName) <= 0) {
-          rows.push({
-            key: `${debtorId}->${creditorId}`,
-            leftName: debtorName,
-            rightName: creditorName,
-            amountEur,
-            amountCents: Math.abs(netCents),
-            arrow: "→",
-            debtorId,
-            creditorId,
-            debtorName,
-            creditorName,
-          });
-        } else {
-          rows.push({
-            key: `${creditorId}<-${debtorId}`,
-            leftName: creditorName,
-            rightName: debtorName,
-            amountEur,
-            amountCents: Math.abs(netCents),
-            arrow: "←",
-            debtorId,
-            creditorId,
-            debtorName,
-            creditorName,
-          });
-        }
+        rows.push({
+          key: `${debtorId}->${creditorId}`,
+          leftName: debtorName,
+          rightName: creditorName,
+          amountEur,
+          amountCents: Math.abs(netCents),
+          arrow: "→",
+          debtorId,
+          creditorId,
+          debtorName,
+          creditorName,
+        });
       }
     }
 
