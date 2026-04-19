@@ -53,7 +53,6 @@ export default function AddPaymentScreen() {
     sourceReceiptId,
     sourceReceiptItemIds,
     sourceReceiptItemsPayload,
-    returnToGroupIfReceiptDone,
   } = useLocalSearchParams<{
     id: string;
     paymentId?: string;
@@ -62,7 +61,6 @@ export default function AddPaymentScreen() {
     sourceReceiptId?: string;
     sourceReceiptItemIds?: string;
     sourceReceiptItemsPayload?: string;
-    returnToGroupIfReceiptDone?: string;
   }>();
   const queryClient = useQueryClient();
 
@@ -405,16 +403,17 @@ export default function AddPaymentScreen() {
           sourceReceiptId,
           effectiveSourceItemIds
         );
-        if (returnToGroupIfReceiptDone === "1") {
-          const remaining = countRemainingDraftReceiptItems(
-            groupId,
-            sourceReceiptId
+        const remaining = countRemainingDraftReceiptItems(groupId, sourceReceiptId);
+        if (remaining > 0) {
+          router.replace(
+            `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
+              sourceReceiptId
+            )}`
           );
-          if (remaining === 0) {
-            goToGroupView();
-            return;
-          }
+          return;
         }
+        goToGroupView();
+        return;
       }
       goToGroupView();
     },
