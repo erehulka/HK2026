@@ -186,7 +186,7 @@ export default function AddReceiptScreen() {
       const result = mapProcessedReceiptToDraftUploadResult(data, groupId);
       const draft = createDraftReceiptFromUpload(groupId, result);
       loadDraftReceipt(draft);
-      router.push(
+      router.replace(
         `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
           draft.id
         )}`

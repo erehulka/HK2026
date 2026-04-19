@@ -20,6 +20,7 @@ import {
 } from "@/components/expense-items-list";
 import {
   countRemainingDraftReceiptItems,
+  deleteDraftReceiptItem,
   markDraftReceiptItemsAsAdded,
 } from "@/constants/mock-receipts";
 import { CURRENT_USER, CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
@@ -159,8 +160,24 @@ export default function AddPaymentScreen() {
     (!isEditing || !existingExpenseQuery.isPending);
   const isViewMode = isEditing && isPreviewMode;
 
-  const goToGroupView = () => router.replace(`/group/${groupId}`);
+  const goToGroupView = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace(`/group/${groupId}`);
+  };
+  const goToReceiptItemsView = () => {
+    if (!sourceReceiptId) return false;
+    router.replace(
+      `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
+        sourceReceiptId
+      )}`
+    );
+    return true;
+  };
   const handleBackNavigation = () => {
+    if (goToReceiptItemsView()) return;
     goToGroupView();
   };
   const handleEnableEditMode = () => {
@@ -397,19 +414,26 @@ export default function AddPaymentScreen() {
           queryKey: ["groups", groupId, "expenses", paymentId],
         });
       }
-      if (sourceReceiptId && effectiveSourceItemIds.length > 0) {
-        markDraftReceiptItemsAsAdded(
-          groupId,
-          sourceReceiptId,
-          effectiveSourceItemIds
-        );
-        const remaining = countRemainingDraftReceiptItems(groupId, sourceReceiptId);
-        if (remaining > 0) {
-          router.replace(
-            `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
-              sourceReceiptId
-            )}`
+      if (sourceReceiptId && sourceItemIds.length > 0) {
+        if (effectiveSourceItemIds.length > 0) {
+          markDraftReceiptItemsAsAdded(
+            groupId,
+            sourceReceiptId,
+            effectiveSourceItemIds
           );
+        }
+        const droppedSourceItemIds = sourceItemIds.filter(
+          (itemId) => !effectiveSourceItemIds.includes(itemId)
+        );
+        for (const droppedItemId of droppedSourceItemIds) {
+          deleteDraftReceiptItem(groupId, sourceReceiptId, droppedItemId);
+        }
+        const remaining = countRemainingDraftReceiptItems(
+          groupId,
+          sourceReceiptId
+        );
+        if (remaining > 0) {
+          goToReceiptItemsView();
           return;
         }
         goToGroupView();
@@ -599,7 +623,9 @@ export default function AddPaymentScreen() {
                   >
                     <Text
                       className={`text-[15px] ${
-                        isActive ? "font-semibold text-sky-400" : "text-white/80"
+                        isActive
+                          ? "font-semibold text-sky-400"
+                          : "text-white/80"
                       }`}
                     >
                       {member.name}
@@ -625,7 +651,10 @@ export default function AddPaymentScreen() {
               <Text className="text-[12px] uppercase tracking-[0.13em] text-white/45">
                 Split between
               </Text>
-              <Text numberOfLines={1} className="text-[16px] font-semibold text-white">
+              <Text
+                numberOfLines={1}
+                className="text-[16px] font-semibold text-white"
+              >
                 {owesSummary} ({owesIds.length})
               </Text>
             </View>
@@ -649,7 +678,9 @@ export default function AddPaymentScreen() {
                         : "border-white/5 bg-[#2a3038]"
                     }`}
                   >
-                    <Text className="text-[15px] text-white">{member.name}</Text>
+                    <Text className="text-[15px] text-white">
+                      {member.name}
+                    </Text>
                     <View
                       className={`h-[22px] w-[22px] items-center justify-center rounded-md border ${
                         isSelected
@@ -696,7 +727,9 @@ export default function AddPaymentScreen() {
         ) : null}
 
         <View className="gap-2 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-          <Text className="text-base font-semibold text-white">Split method</Text>
+          <Text className="text-base font-semibold text-white">
+            Split method
+          </Text>
           <Text className="text-[13px] text-white/45">
             Quick payment currently creates an equal split for selected members.
           </Text>
