@@ -1,14 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Group, MOCK_GROUPS } from "@/constants/mock-groups";
+import { GroupOut } from "@/api/generated/api";
+import { backendClient } from "@/api/generated/client";
+import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
+import { AxiosResponse } from "axios";
+
+const userGroupsQueryKey = (userId: string) =>
+  ["users", userId, "groups"] as const;
 
 export default function HomeScreen() {
-  const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+  const {
+    data: groups,
+    isPending,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
+    queryKey: userGroupsQueryKey(CURRENT_USER_BACKEND_ID),
+    queryFn: () =>
+      backendClient.listUserGroupsUsersUserIdGroupsGet(CURRENT_USER_BACKEND_ID),
+    select: (response: AxiosResponse<GroupOut[]>) => response.data,
+  });
+
   const accountName = "Moj bezny ucet";
   const accountIban = "SK86 1100 0000 0026 1100 0000";
   const accountBalance = 2154.43;
@@ -37,8 +57,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setGroups([...MOCK_GROUPS]);
-    }, [])
+      refetch();
+    }, [refetch])
   );
 
   return (
@@ -71,7 +91,9 @@ export default function HomeScreen() {
               onPress={() => router.push("/create-group")}
               className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2"
             >
-              <Text className="text-sm font-semibold text-sky-400">Upraviť</Text>
+              <Text className="text-sm font-semibold text-sky-400">
+                Upraviť
+              </Text>
             </Pressable>
           </View>
 
@@ -79,7 +101,9 @@ export default function HomeScreen() {
 
           <View className="rounded-[18px] border border-white/8 bg-[#1a1d24] p-4">
             <View className="rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
-              <Text className="text-base font-semibold text-white">{accountName}</Text>
+              <Text className="text-base font-semibold text-white">
+                {accountName}
+              </Text>
               <Text className="mt-1 text-sm text-white/45">{accountIban}</Text>
 
               <View className="my-4 h-px bg-white/5" />
@@ -91,7 +115,9 @@ export default function HomeScreen() {
                 <Text className="text-3xl font-bold text-white">
                   {formatMoney(accountBalance).replace("€", "")}
                 </Text>
-                <Text className="pb-1 text-sm font-semibold text-white/85">EUR</Text>
+                <Text className="pb-1 text-sm font-semibold text-white/85">
+                  EUR
+                </Text>
               </View>
             </View>
           </View>
@@ -106,29 +132,34 @@ export default function HomeScreen() {
           </View>
 
           <View className="flex-row gap-3">
-            {groups.slice(0, 2).map((group) => (
-              <Pressable
-                key={group.id}
-                onPress={() => router.push(`/group/${group.id}`)}
-                className="flex-1 rounded-[14px] border border-white/5 bg-[#2a3038] p-4"
-              >
-                <Text className="text-base font-semibold text-white">{group.name}</Text>
-                <Text
-                  className={`mt-4 text-2xl font-bold ${
-                    group.balance > 0
-                      ? "text-emerald-400"
-                      : group.balance < 0
-                      ? "text-rose-400"
-                      : "text-white"
-                  }`}
+            {!isPending &&
+              !isError &&
+              groups?.slice(0, 2).map((group) => (
+                <Pressable
+                  key={group.id}
+                  onPress={() => router.push(`/group/${group.id}`)}
+                  className="flex-1 rounded-[14px] border border-white/5 bg-[#2a3038] p-4"
                 >
-                  {group.balance < 0 ? "-" : ""} {formatBalance(group.balance)}
-                </Text>
-                <Text className="mt-1 text-xs text-white/45 capitalize">
-                  {group.type}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text className="text-base font-semibold text-white">
+                    {group.name}
+                  </Text>
+                  <Text
+                    className={`mt-4 text-2xl font-bold ${
+                      group.balance > 0
+                        ? "text-emerald-400"
+                        : group.balance < 0
+                        ? "text-rose-400"
+                        : "text-white"
+                    }`}
+                  >
+                    {group.balance < 0 ? "-" : ""}{" "}
+                    {formatBalance(group.balance)}
+                  </Text>
+                  <Text className="mt-1 text-xs text-white/45 capitalize">
+                    {group.type}
+                  </Text>
+                </Pressable>
+              ))}
           </View>
         </View>
 
@@ -143,7 +174,8 @@ export default function HomeScreen() {
               + {formatBalance(1312.44)}
             </Text>
             <Text className="mt-2 text-sm text-white/55">
-              Estimated balance remaining until the end of the period (13 days remaining)
+              Estimated balance remaining until the end of the period (13 days
+              remaining)
             </Text>
           </View>
         </View>
