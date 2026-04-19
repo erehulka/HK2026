@@ -1,28 +1,32 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AxiosResponse } from "axios";
 
 import { InviteFriends } from "@/components/invite-friends";
-import type { GroupOut } from "@/api/generated/api";
+import type { GroupOut, UserOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
+import type { Friend } from "@/constants/mock-friends";
 import { GroupType } from "@/constants/mock-groups";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
 const GROUP_TYPES: GroupType[] = ["basic", "trip", "household"];
+const MONGO_OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
 
 type CreateGroupInput = {
   name: string;
   description: string;
+  memberUserIds: string[];
 };
 
 async function createGroupForCurrentUser(
@@ -32,19 +36,27 @@ async function createGroupForCurrentUser(
   const { data: group } = await backendClient.createGroupGroupsPost({
     name: input.name,
     description: input.description,
+    member_user_ids: input.memberUserIds,
   });
   console.log("[createGroup] created", group.id);
-  // Make sure the creator is a member so the new group appears in their list.
-  await backendClient.addUserToGroupGroupsGroupIdUsersUserIdPost(
-    group.id,
-    CURRENT_USER_BACKEND_ID
-  );
-  console.log("[createGroup] member added", CURRENT_USER_BACKEND_ID);
   return group;
 }
 
 export default function CreateGroupScreen() {
   const queryClient = useQueryClient();
+
+  const { data: friends = [] } = useQuery({
+    queryKey: ["users", CURRENT_USER_BACKEND_ID, "friends"],
+    queryFn: () =>
+      backendClient.listUserFriendsUsersUserIdFriendsGet(CURRENT_USER_BACKEND_ID),
+    select: (response: AxiosResponse<UserOut[]>) =>
+      response.data.map(
+        (user): Friend => ({
+          id: user.id,
+          name: user.display_name,
+        })
+      ),
+  });
 
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
@@ -83,9 +95,17 @@ export default function CreateGroupScreen() {
       trimmedName,
     });
     if (!canConfirm) return;
+    const memberUserIds = Array.from(
+      new Set(
+        [CURRENT_USER_BACKEND_ID, ...selectedFriendIds].filter((userId) =>
+          MONGO_OBJECT_ID_REGEX.test(userId)
+        )
+      )
+    );
     createGroupMutation.mutate({
       name: trimmedName,
       description: trimmedDescription,
+      memberUserIds,
     });
   };
 
@@ -179,6 +199,7 @@ export default function CreateGroupScreen() {
         <InviteFriends
           selectedFriendIds={selectedFriendIds}
           onToggleFriend={toggleFriend}
+          friends={friends}
         />
 
         {errorMessage ? (
