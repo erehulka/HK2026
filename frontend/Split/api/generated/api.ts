@@ -93,6 +93,17 @@ export interface ExpenseFrontendCreate {
 
 
 /**
+ * Item payload for expense PATCH, optionally targeting an existing item id.
+ */
+export interface ExpenseItemPatch {
+    'description': string;
+    /**
+     * Item amount in euro cents (100 = €1.00)
+     */
+    'amount': number;
+    'id'?: string | null;
+}
+/**
  * Expense returned to clients.
  */
 export interface ExpenseOut {
@@ -131,6 +142,7 @@ export interface ExpenseUpdate {
     'paid_by'?: string | null;
     'participants'?: Array<string> | null;
     'split_type'?: ExpenseSplitType | null;
+    'items'?: Array<ExpenseItemPatch> | null;
 }
 
 
@@ -1955,6 +1967,40 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         },
         /**
          * 
+         * @summary List a user\'s friends
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUserFriendsUsersUserIdFriendsGet: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listUserFriendsUsersUserIdFriendsGet', 'userId', userId)
+            const localVarPath = `/users/{user_id}/friends`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary List groups a user belongs to
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -2063,6 +2109,19 @@ export const UsersApiFp = function(configuration?: Configuration) {
         },
         /**
          * 
+         * @summary List a user\'s friends
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listUserFriendsUsersUserIdFriendsGet(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserOut>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listUserFriendsUsersUserIdFriendsGet(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['UsersApi.listUserFriendsUsersUserIdFriendsGet']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
          * @summary List groups a user belongs to
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -2120,6 +2179,16 @@ export const UsersApiFactory = function (configuration?: Configuration, basePath
         },
         /**
          * 
+         * @summary List a user\'s friends
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUserFriendsUsersUserIdFriendsGet(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<UserOut>> {
+            return localVarFp.listUserFriendsUsersUserIdFriendsGet(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
          * @summary List groups a user belongs to
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -2167,6 +2236,15 @@ export interface UsersApiInterface {
 
     /**
      * 
+     * @summary List a user\'s friends
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    listUserFriendsUsersUserIdFriendsGet(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<UserOut>>;
+
+    /**
+     * 
      * @summary List groups a user belongs to
      * @param {string} userId 
      * @param {*} [options] Override http request option.
@@ -2211,6 +2289,17 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
      */
     public createUserUsersPost(userCreate: UserCreate, options?: RawAxiosRequestConfig) {
         return UsersApiFp(this.configuration).createUserUsersPost(userCreate, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary List a user\'s friends
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public listUserFriendsUsersUserIdFriendsGet(userId: string, options?: RawAxiosRequestConfig) {
+        return UsersApiFp(this.configuration).listUserFriendsUsersUserIdFriendsGet(userId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
