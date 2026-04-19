@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -12,11 +13,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { type ReceiptProcessedOut } from "@/api/generated/api";
+import { backendClient } from "@/api/generated/client";
 import {
   ExpenseItemsList,
   type ExpenseItemsListItem,
 } from "@/components/expense-items-list";
-import { mockUploadReceipt } from "@/constants/mock-receipt-upload";
 import {
   DraftReceipt,
   createDraftReceiptFromUpload,
@@ -25,6 +27,44 @@ import {
   updateDraftReceiptItem,
   updateDraftReceiptName,
 } from "@/constants/mock-receipts";
+
+type UploadResultLike = {
+  receiptId: string;
+  extractedReceiptName: string;
+  items: {
+    name: string;
+    price: number;
+  }[];
+};
+
+function mapProcessedReceiptToDraftUploadResult(
+  processed: ReceiptProcessedOut,
+  groupId: string
+): UploadResultLike {
+  const receiptId = `r-${groupId}-${Date.now()}`;
+  const extractedReceiptName =
+    processed.summary_label?.trim() ||
+    `Receipt ${new Date().toLocaleDateString()}`;
+
+  return {
+    receiptId,
+    extractedReceiptName,
+    items: processed.items.map((item, index) => {
+      const parsedTotal = Number(item.total_price);
+      const fallbackTotal = Number(item.unit_price) * Number(item.quantity);
+      const price = Number.isFinite(parsedTotal)
+        ? parsedTotal
+        : Number.isFinite(fallbackTotal)
+        ? fallbackTotal
+        : 0;
+
+      return {
+        name: item.name?.trim() || `Item ${index + 1}`,
+        price,
+      };
+    }),
+  };
+}
 
 type ReceiptItemEditor = {
   id: string;
@@ -46,6 +86,8 @@ export default function AddReceiptScreen() {
   }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photoMimeType, setPhotoMimeType] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [receiptName, setReceiptName] = useState("");
   const [receiptItems, setReceiptItems] = useState<ReceiptItemEditor[]>([]);
@@ -94,9 +136,32 @@ export default function AddReceiptScreen() {
       });
       if (photo?.uri) {
         setPhotoUri(photo.uri);
+        setPhotoName(photo.uri.split("/").pop() || null);
+        setPhotoMimeType("image/jpeg");
       }
     } catch {
       Alert.alert("Camera error", "Could not take photo.");
+    }
+  };
+
+  const handlePickFromFiles = async () => {
+    if (isUploading) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "image/*",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || result.assets.length === 0) {
+        return;
+      }
+
+      const picked = result.assets[0];
+      setPhotoUri(picked.uri);
+      setPhotoName(picked.name || null);
+      setPhotoMimeType(picked.mimeType || "image/jpeg");
+    } catch {
+      Alert.alert("File picker error", "Could not select an image.");
     }
   };
 
@@ -105,7 +170,18 @@ export default function AddReceiptScreen() {
     setIsUploading(true);
 
     try {
-      const result = await mockUploadReceipt(photoUri, groupId);
+      const fileName =
+        photoName || photoUri.split("/").pop() || `receipt-${Date.now()}.jpg`;
+      // React Native expects { uri, name, type } for multipart file fields.
+      const uploadFile = {
+        uri: photoUri,
+        name: fileName,
+        type: photoMimeType || "image/jpeg",
+      } as unknown as File;
+
+      const { data } =
+        await backendClient.processReceiptUploadReceiptsProcessPost(uploadFile);
+      const result = mapProcessedReceiptToDraftUploadResult(data, groupId);
       const draft = createDraftReceiptFromUpload(groupId, result);
       loadDraftReceipt(draft);
       router.push(
@@ -113,8 +189,10 @@ export default function AddReceiptScreen() {
           draft.id
         )}`
       );
-    } catch {
-      Alert.alert("Upload failed", "Could not upload receipt.");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not upload receipt.";
+      Alert.alert("Upload failed", message);
     } finally {
       setIsUploading(false);
     }
@@ -192,12 +270,14 @@ export default function AddReceiptScreen() {
   const selectedEditableItems = receiptItems.filter(
     (item) => selectedItemIds.includes(item.id) && !item.isAdded
   );
-  const receiptItemListItems: ExpenseItemsListItem[] = receiptItems.map((item) => ({
-    id: item.id,
-    name: item.name,
-    priceInput: item.priceInput,
-    isDisabled: item.isAdded,
-  }));
+  const receiptItemListItems: ExpenseItemsListItem[] = receiptItems.map(
+    (item) => ({
+      id: item.id,
+      name: item.name,
+      priceInput: item.priceInput,
+      isDisabled: item.isAdded,
+    })
+  );
   const remainingEditableItems = receiptItems.filter((item) => !item.isAdded);
   const canAddSelected =
     !!receiptId &&
@@ -236,8 +316,8 @@ export default function AddReceiptScreen() {
 
     if (expenseItemsPayload.length === 0) return;
 
-    router.push({
-      pathname: "/group/[id]/add-payment",
+    const destination = {
+      pathname: "/group/[id]/add-payment" as const,
       params: {
         id: groupId,
         prefillName,
@@ -247,7 +327,8 @@ export default function AddReceiptScreen() {
         sourceReceiptItemsPayload: JSON.stringify(expenseItemsPayload),
         returnToGroupIfReceiptDone: returnToGroupIfDone ? "1" : "0",
       },
-    });
+    };
+    router.replace(destination);
   };
 
   const handleAddSelectedAsExpense = () => {
@@ -276,8 +357,17 @@ export default function AddReceiptScreen() {
         <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
         <View className="bg-app-surface border border-app-border rounded-xl p-4 gap-3">
           <Text className="text-app-text">
-            Camera access is needed to take a receipt photo.
+            Camera access is needed to take a photo. You can also choose one
+            from files.
           </Text>
+          <Pressable
+            onPress={handlePickFromFiles}
+            className="rounded-[10px] py-3 items-center bg-app-primary"
+          >
+            <Text className="text-app-text font-semibold">
+              Choose from files
+            </Text>
+          </Pressable>
           <Pressable
             onPress={requestPermission}
             className="rounded-[10px] py-3 items-center bg-app-primary"
@@ -384,7 +474,7 @@ export default function AddReceiptScreen() {
       <View className="px-5 pt-16 pb-4 gap-3">
         <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
         <Text className="text-app-muted">
-          Take a photo and send it to backend (mocked for now).
+          Take a photo or choose from files, then send it to backend.
         </Text>
       </View>
 
@@ -403,16 +493,30 @@ export default function AddReceiptScreen() {
 
       <View className="px-5 pb-6 gap-3">
         {!photoUri ? (
-          <Pressable
-            onPress={handleTakePhoto}
-            className="rounded-[10px] py-3 items-center bg-app-primary"
-          >
-            <Text className="text-app-text font-semibold">Take photo</Text>
-          </Pressable>
+          <View className="gap-3">
+            <Pressable
+              onPress={handlePickFromFiles}
+              className="rounded-[10px] py-3 items-center bg-app-primary"
+            >
+              <Text className="text-app-text font-semibold">
+                Choose from files
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleTakePhoto}
+              className="rounded-[10px] py-3 items-center bg-app-primary"
+            >
+              <Text className="text-app-text font-semibold">Take photo</Text>
+            </Pressable>
+          </View>
         ) : (
           <View className="flex-row gap-3">
             <Pressable
-              onPress={() => setPhotoUri(null)}
+              onPress={() => {
+                setPhotoUri(null);
+                setPhotoName(null);
+                setPhotoMimeType(null);
+              }}
               className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
             >
               <Text className="text-app-text font-semibold">Retake</Text>

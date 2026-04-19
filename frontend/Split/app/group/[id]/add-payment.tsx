@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -158,6 +158,11 @@ export default function AddPaymentScreen() {
     (!isMultiItemExpense || areDraftItemsValid) &&
     !membersQuery.isPending &&
     (!isEditing || !existingExpenseQuery.isPending);
+
+  const goToGroupsView = () => router.replace("/");
+  const handleBackNavigation = () => {
+    goToGroupsView();
+  };
 
   useEffect(() => {
     const memberIds = members.map((member) => member.id);
@@ -396,12 +401,12 @@ export default function AddPaymentScreen() {
             sourceReceiptId
           );
           if (remaining === 0) {
-            router.replace(`/group/${groupId}`);
+            goToGroupsView();
             return;
           }
         }
       }
-      router.back();
+      goToGroupsView();
     },
   });
   const deleteExpenseMutation = useMutation({
@@ -423,7 +428,7 @@ export default function AddPaymentScreen() {
           queryKey: ["groups", groupId, "expenses", paymentId],
         });
       }
-      router.back();
+      goToGroupsView();
     },
   });
 
@@ -443,6 +448,19 @@ export default function AddPaymentScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
+      <Stack.Screen
+        options={{
+          gestureEnabled: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={handleBackNavigation}
+              className="w-10 h-10 items-start justify-center"
+            >
+              <Ionicons name="chevron-back" size={22} color="#2563eb" />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView contentContainerClassName="px-5 pt-16 pb-6 gap-4">
         <Text className="text-3xl font-bold text-app-text">
           {isEditing ? "Edit Payment" : "Add Payment"}
@@ -663,7 +681,7 @@ export default function AddPaymentScreen() {
 
         <View className="flex-row gap-3 mt-2">
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleBackNavigation}
             disabled={
               savePaymentMutation.isPending || deleteExpenseMutation.isPending
             }
