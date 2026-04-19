@@ -9,15 +9,10 @@ import {
   GroupsApiFactory,
   ItemsApiFactory,
   ReceiptsApiFactory,
-  type UserOut,
   UsersApiFactory,
 } from "./api";
 import { Configuration, type ConfigurationParameters } from "./configuration";
-import axiosClient, {
-  type AxiosInstance,
-  type AxiosPromise,
-  type RawAxiosRequestConfig,
-} from "axios";
+import type { AxiosInstance } from "axios";
 
 /** Default FastAPI base URL for local development. */
 export const BACKEND_BASE_URL = "http://127.0.0.1:8000" as const;
@@ -35,7 +30,6 @@ export function createBackendClient({
 }: ClientConfig = {}) {
   const configuration = new Configuration(configurationParameters);
   const args = [configuration, basePath, axios] as const;
-  const request = axios ?? axiosClient;
 
   return {
     ...DefaultApiFactory(...args),
@@ -44,22 +38,6 @@ export function createBackendClient({
     ...ItemsApiFactory(...args),
     ...ReceiptsApiFactory(...args),
     ...UsersApiFactory(...args),
-    // Temporary wrapper until the generated client includes GET /users/{user_id}/friends.
-    listUserFriendsUsersUserIdFriendsGet(
-      userId: string,
-      options: RawAxiosRequestConfig = {}
-    ): AxiosPromise<Array<UserOut>> {
-      return request.request<Array<UserOut>>({
-        baseURL: basePath,
-        method: "GET",
-        url: `/users/${encodeURIComponent(userId)}/friends`,
-        ...options,
-        headers: {
-          Accept: "application/json",
-          ...(options.headers ?? {}),
-        },
-      });
-    },
   };
 }
 
