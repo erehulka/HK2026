@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AxiosResponse } from "axios";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
@@ -11,16 +12,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AxiosResponse } from "axios";
 
-import { InviteFriends } from "@/components/invite-friends";
 import type { GroupOut, UserOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
+import { InviteFriends } from "@/components/invite-friends";
 import type { Friend } from "@/constants/mock-friends";
 import { GroupType } from "@/constants/mock-groups";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
-const GROUP_TYPES: GroupType[] = ["basic", "trip", "household"];
 const MONGO_OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
 
 type CreateGroupInput = {
@@ -48,7 +47,9 @@ export default function CreateGroupScreen() {
   const { data: friends = [] } = useQuery({
     queryKey: ["users", CURRENT_USER_BACKEND_ID, "friends"],
     queryFn: () =>
-      backendClient.listUserFriendsUsersUserIdFriendsGet(CURRENT_USER_BACKEND_ID),
+      backendClient.listUserFriendsUsersUserIdFriendsGet(
+        CURRENT_USER_BACKEND_ID
+      ),
     select: (response: AxiosResponse<UserOut[]>) =>
       response.data.map(
         (user): Friend => ({
@@ -115,7 +116,7 @@ export default function CreateGroupScreen() {
       : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-app-bg" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-[#0f1115]" edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         className="flex-1 bg-[#0f1115]"
@@ -135,14 +136,15 @@ export default function CreateGroupScreen() {
 
         <View className="gap-1">
           <Text className="text-4xl font-bold text-white">Create Group</Text>
-          <Text className="text-sm text-white/45">Choose a name and group type.</Text>
         </View>
 
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
           <Text className="text-lg font-bold text-white">Details</Text>
 
           <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
-            <Text className="text-base font-semibold text-white">Group name</Text>
+            <Text className="text-base font-semibold text-white">
+              Group name
+            </Text>
             <TextInput
               value={groupName}
               onChangeText={setGroupName}
@@ -154,7 +156,9 @@ export default function CreateGroupScreen() {
           </View>
 
           <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
-            <Text className="text-base font-semibold text-white">Description</Text>
+            <Text className="text-base font-semibold text-white">
+              Description
+            </Text>
             <TextInput
               value={groupDescription}
               onChangeText={setGroupDescription}
@@ -164,35 +168,6 @@ export default function CreateGroupScreen() {
               multiline
               className="min-h-[64px] rounded-[12px] border border-white/10 bg-[#232831] px-3 py-[11px] text-white"
             />
-          </View>
-        </View>
-
-        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-          <Text className="text-lg font-bold text-white">Group type</Text>
-          <View className="flex-row gap-3">
-            {GROUP_TYPES.map((type) => {
-              const isActive = type === groupType;
-              return (
-                <Pressable
-                  key={type}
-                  onPress={() => setGroupType(type)}
-                  disabled={isSubmitting}
-                  className={`flex-1 items-center rounded-[12px] border py-3 ${
-                    isActive
-                      ? "border-sky-400/50 bg-[#2b6fff]"
-                      : "border-white/10 bg-[#232831]"
-                  }`}
-                >
-                  <Text
-                    className={`text-[15px] font-semibold capitalize ${
-                      isActive ? "text-white" : "text-white/70"
-                    }`}
-                  >
-                    {type}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
         </View>
 
