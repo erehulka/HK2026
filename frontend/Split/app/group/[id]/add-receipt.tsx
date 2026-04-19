@@ -1,10 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as DocumentPicker from "expo-document-picker";
-import {
-  router,
-  useFocusEffect,
-  useLocalSearchParams,
-} from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,8 +16,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { type ReceiptProcessedOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
 import {
+  ExpenseItemsList,
+  type ExpenseItemsListItem,
+} from "@/components/expense-items-list";
+import {
   DraftReceipt,
   createDraftReceiptFromUpload,
+  deleteDraftReceiptItem,
   getDraftReceiptById,
   updateDraftReceiptItem,
   updateDraftReceiptName,
@@ -42,7 +43,8 @@ function mapProcessedReceiptToDraftUploadResult(
 ): UploadResultLike {
   const receiptId = `r-${groupId}-${Date.now()}`;
   const extractedReceiptName =
-    processed.summary_label?.trim() || `Receipt ${new Date().toLocaleDateString()}`;
+    processed.summary_label?.trim() ||
+    `Receipt ${new Date().toLocaleDateString()}`;
 
   return {
     receiptId,
@@ -53,8 +55,8 @@ function mapProcessedReceiptToDraftUploadResult(
       const price = Number.isFinite(parsedTotal)
         ? parsedTotal
         : Number.isFinite(fallbackTotal)
-          ? fallbackTotal
-          : 0;
+        ? fallbackTotal
+        : 0;
 
       return {
         name: item.name?.trim() || `Item ${index + 1}`,
@@ -69,6 +71,12 @@ type ReceiptItemEditor = {
   name: string;
   priceInput: string;
   isAdded: boolean;
+};
+
+type ReceiptExpenseItemPayload = {
+  id: string;
+  name: string;
+  amountCents: number;
 };
 
 export default function AddReceiptScreen() {
@@ -86,33 +94,30 @@ export default function AddReceiptScreen() {
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const cameraRef = useRef<CameraView | null>(null);
 
-  const loadDraftReceipt = useCallback(
-    (draft?: DraftReceipt) => {
-      if (!draft) {
-        setReceiptName("");
-        setReceiptItems([]);
-        setSelectedItemIds([]);
-        return;
-      }
+  const loadDraftReceipt = useCallback((draft?: DraftReceipt) => {
+    if (!draft) {
+      setReceiptName("");
+      setReceiptItems([]);
+      setSelectedItemIds([]);
+      return;
+    }
 
-      setReceiptName(draft.name);
-      setReceiptItems(
-        draft.items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          priceInput: String(item.price),
-          isAdded: !!item.addedToExpenseAt,
-        }))
-      );
-      setSelectedItemIds((prev) =>
-        prev.filter((itemId) => {
-          const match = draft.items.find((item) => item.id === itemId);
-          return !!match && !match.addedToExpenseAt;
-        })
-      );
-    },
-    []
-  );
+    setReceiptName(draft.name);
+    setReceiptItems(
+      draft.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        priceInput: String(item.price),
+        isAdded: !!item.addedToExpenseAt,
+      }))
+    );
+    setSelectedItemIds((prev) =>
+      prev.filter((itemId) => {
+        const match = draft.items.find((item) => item.id === itemId);
+        return !!match && !match.addedToExpenseAt;
+      })
+    );
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -165,7 +170,8 @@ export default function AddReceiptScreen() {
     setIsUploading(true);
 
     try {
-      const fileName = photoName || photoUri.split("/").pop() || `receipt-${Date.now()}.jpg`;
+      const fileName =
+        photoName || photoUri.split("/").pop() || `receipt-${Date.now()}.jpg`;
       // React Native expects { uri, name, type } for multipart file fields.
       const uploadFile = {
         uri: photoUri,
@@ -179,7 +185,9 @@ export default function AddReceiptScreen() {
       const draft = createDraftReceiptFromUpload(groupId, result);
       loadDraftReceipt(draft);
       router.push(
-        `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(draft.id)}`
+        `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
+          draft.id
+        )}`
       );
     } catch (error) {
       const message =
@@ -206,7 +214,9 @@ export default function AddReceiptScreen() {
 
   const handleItemNameChange = (itemId: string, nextName: string) => {
     setReceiptItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, name: nextName } : item))
+      prev.map((item) =>
+        item.id === itemId ? { ...item, name: nextName } : item
+      )
     );
     if (!receiptId) return;
     updateDraftReceiptItem(groupId, receiptId, itemId, { name: nextName });
@@ -231,7 +241,9 @@ export default function AddReceiptScreen() {
       if (!original) return;
       setReceiptItems((prev) =>
         prev.map((entry) =>
-          entry.id === itemId ? { ...entry, priceInput: String(original.price) } : entry
+          entry.id === itemId
+            ? { ...entry, priceInput: String(original.price) }
+            : entry
         )
       );
       return;
@@ -244,8 +256,27 @@ export default function AddReceiptScreen() {
     );
   };
 
+  const handleDeleteItem = (itemId: string) => {
+    const target = receiptItems.find((item) => item.id === itemId);
+    if (!target || target.isAdded) return;
+
+    setReceiptItems((prev) => prev.filter((item) => item.id !== itemId));
+    setSelectedItemIds((prev) => prev.filter((id) => id !== itemId));
+
+    if (!receiptId) return;
+    deleteDraftReceiptItem(groupId, receiptId, itemId);
+  };
+
   const selectedEditableItems = receiptItems.filter(
     (item) => selectedItemIds.includes(item.id) && !item.isAdded
+  );
+  const receiptItemListItems: ExpenseItemsListItem[] = receiptItems.map(
+    (item) => ({
+      id: item.id,
+      name: item.name,
+      priceInput: item.priceInput,
+      isDisabled: item.isAdded,
+    })
   );
   const remainingEditableItems = receiptItems.filter((item) => !item.isAdded);
   const canAddSelected =
@@ -268,13 +299,22 @@ export default function AddReceiptScreen() {
     returnToGroupIfDone: boolean
   ) => {
     if (!receiptId || items.length === 0) return;
-    const prefillName = items
-      .map((item) => item.name.trim())
-      .join(", ");
-    const totalAmount = items.reduce((sum, item) => {
-      const numeric = parseFloat(item.priceInput.replace(",", "."));
-      return isNaN(numeric) ? sum : sum + numeric;
+    const prefillName = receiptName.trim() || "Receipt expense";
+    const expenseItemsPayload: ReceiptExpenseItemPayload[] = items
+      .map((item) => {
+        const numeric = parseFloat(item.priceInput.replace(",", "."));
+        return {
+          id: item.id,
+          name: item.name.trim(),
+          amountCents: isNaN(numeric) ? 0 : Math.round(numeric * 100),
+        };
+      })
+      .filter((item) => item.name.length > 0 && item.amountCents > 0);
+    const totalAmount = expenseItemsPayload.reduce((sum, item) => {
+      return sum + item.amountCents / 100;
     }, 0);
+
+    if (expenseItemsPayload.length === 0) return;
 
     router.push({
       pathname: "/group/[id]/add-payment",
@@ -284,6 +324,7 @@ export default function AddReceiptScreen() {
         prefillAmount: totalAmount.toFixed(2),
         sourceReceiptId: receiptId,
         sourceReceiptItemIds: items.map((item) => item.id).join(","),
+        sourceReceiptItemsPayload: JSON.stringify(expenseItemsPayload),
         returnToGroupIfReceiptDone: returnToGroupIfDone ? "1" : "0",
       },
     });
@@ -291,7 +332,9 @@ export default function AddReceiptScreen() {
 
   const handleAddSelectedAsExpense = () => {
     if (!canAddSelected) return;
-    pushToAddExpenseForItems(selectedEditableItems, false);
+    const selectedAllRemaining =
+      selectedEditableItems.length === remainingEditableItems.length;
+    pushToAddExpenseForItems(selectedEditableItems, selectedAllRemaining);
   };
 
   const handleAddAllRemainingAsExpense = () => {
@@ -313,13 +356,16 @@ export default function AddReceiptScreen() {
         <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
         <View className="bg-app-surface border border-app-border rounded-xl p-4 gap-3">
           <Text className="text-app-text">
-            Camera access is needed to take a photo. You can also choose one from files.
+            Camera access is needed to take a photo. You can also choose one
+            from files.
           </Text>
           <Pressable
             onPress={handlePickFromFiles}
             className="rounded-[10px] py-3 items-center bg-app-primary"
           >
-            <Text className="text-app-text font-semibold">Choose from files</Text>
+            <Text className="text-app-text font-semibold">
+              Choose from files
+            </Text>
           </Pressable>
           <Pressable
             onPress={requestPermission}
@@ -342,9 +388,12 @@ export default function AddReceiptScreen() {
     return (
       <SafeAreaView className="flex-1 bg-app-bg">
         <View className="px-5 pt-16 pb-4 gap-3">
-          <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
+          <Text className="text-3xl font-bold text-app-text">
+            Add a receipt
+          </Text>
           <Text className="text-app-muted">
-            Name the receipt, fix scanned items, and add selected items as expenses.
+            Name the receipt, fix scanned items, and add selected items as
+            expenses.
           </Text>
         </View>
 
@@ -361,68 +410,26 @@ export default function AddReceiptScreen() {
           </View>
 
           <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-2 flex-1">
-            <Text className="text-base font-semibold text-app-text">Receipt items</Text>
+            <Text className="text-base font-semibold text-app-text">
+              Receipt items
+            </Text>
             <ScrollView
               className="flex-1"
               contentContainerClassName="gap-2 pb-2"
               showsVerticalScrollIndicator
             >
-              {receiptItems.map((item) => {
-                const isSelected = selectedItemIds.includes(item.id);
-                const isDisabled = item.isAdded;
-                return (
-                  <View
-                    key={item.id}
-                    className={`rounded-[10px] border px-3 py-[10px] gap-2 ${
-                      isDisabled
-                        ? "bg-app-card border-app-border opacity-50"
-                        : "bg-app-card border-app-border-soft"
-                    }`}
-                  >
-                    <View className="flex-row items-center gap-2">
-                      <Pressable
-                        onPress={() => {
-                          if (!isDisabled) toggleItemSelection(item.id);
-                        }}
-                        className={`w-[22px] h-[22px] rounded-md border items-center justify-center ${
-                          isSelected && !isDisabled
-                            ? "bg-white border-white"
-                            : "bg-app-card border-app-input-border"
-                        }`}
-                      >
-                        {isSelected && !isDisabled && (
-                          <Text className="font-bold text-app-border-soft">✓</Text>
-                        )}
-                      </Pressable>
-                      <Text className="text-xs text-app-muted flex-1">
-                        {isDisabled ? "Already added to an expense" : "Select for expense"}
-                      </Text>
-                    </View>
-                    <View className="flex-row gap-2">
-                      <TextInput
-                        value={item.name}
-                        onChangeText={(value) => handleItemNameChange(item.id, value)}
-                        editable={!isDisabled}
-                        placeholder="Item name"
-                        placeholderTextColor="#7c90c6"
-                        className="flex-1 bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text"
-                      />
-                      <TextInput
-                        value={item.priceInput}
-                        onChangeText={(value) =>
-                          handleItemPriceInputChange(item.id, value)
-                        }
-                        onBlur={() => handleItemPriceBlur(item.id)}
-                        editable={!isDisabled}
-                        placeholder="0.00"
-                        placeholderTextColor="#7c90c6"
-                        keyboardType="decimal-pad"
-                        className="w-[110px] bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text text-right"
-                      />
-                    </View>
-                  </View>
-                );
-              })}
+              <ExpenseItemsList
+                items={receiptItemListItems}
+                showSelection
+                selectedItemIds={selectedItemIds}
+                onToggleSelection={toggleItemSelection}
+                editable
+                onNameChange={handleItemNameChange}
+                onPriceInputChange={handleItemPriceInputChange}
+                onPriceBlur={handleItemPriceBlur}
+                enableSwipeDelete
+                onDelete={handleDeleteItem}
+              />
             </ScrollView>
           </View>
 
@@ -434,7 +441,9 @@ export default function AddReceiptScreen() {
                 canAddSelected ? "bg-app-primary" : "bg-app-primary-dim"
               }`}
             >
-              <Text className="text-app-text font-semibold">Add selected as expense</Text>
+              <Text className="text-app-text font-semibold">
+                Add selected as expense
+              </Text>
             </Pressable>
             <Pressable
               onPress={handleAddAllRemainingAsExpense}
@@ -488,7 +497,9 @@ export default function AddReceiptScreen() {
               onPress={handlePickFromFiles}
               className="rounded-[10px] py-3 items-center bg-app-primary"
             >
-              <Text className="text-app-text font-semibold">Choose from files</Text>
+              <Text className="text-app-text font-semibold">
+                Choose from files
+              </Text>
             </Pressable>
             <Pressable
               onPress={handleTakePhoto}

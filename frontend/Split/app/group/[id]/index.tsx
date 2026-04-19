@@ -1,53 +1,148 @@
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { MOCK_FRIENDS } from "@/constants/mock-friends";
-import { getGroupById, getGroupMembers } from "@/constants/mock-groups";
-import {
-  computeUserBalanceEffect,
-  getPaymentsForGroup,
-  Payment,
-} from "@/constants/mock-payments";
-import { CURRENT_USER } from "@/constants/mock-user";
+import type { SimplifiedGroupDebtsOut } from "@/api/generated/api";
+import { backendClient } from "@/api/generated/client";
+import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
+
+const groupQueryKey = (groupId: string) => ["groups", groupId] as const;
+const groupMembersQueryKey = (groupId: string) =>
+  ["groups", groupId, "members"] as const;
+const groupDebtsQueryKey = (groupId: string) =>
+  ["groups", groupId, "debts", "simplified"] as const;
+
+/**
+ * Returns the signed net balance in EUR for `userId` in this group.
+ * Positive = group members owe the user; negative = the user owes the group.
+ * Returns null if the user is not part of the matrix (and so has no balance).
+ */
+function computeUserNetBalanceEur(
+  debts: SimplifiedGroupDebtsOut,
+  userId: string
+): number | null {
+  const idx = debts.member_ids.indexOf(userId);
+  if (idx === -1) return null;
+
+  let owedByUserCents = 0;
+  let owedToUserCents = 0;
+  for (let j = 0; j < debts.member_ids.length; j += 1) {
+    owedByUserCents += debts.matrix[idx]?.[j] ?? 0;
+    owedToUserCents += debts.matrix[j]?.[idx] ?? 0;
+  }
+  return (owedToUserCents - owedByUserCents) / 100;
+}
+
+function formatExpenseDate(isoDate: string) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const group = getGroupById(id);
-  const [payments, setPayments] = useState<Payment[]>(() =>
-    getPaymentsForGroup(id)
-  );
-  const fallbackMemberIds = useMemo(
-    () => [CURRENT_USER.id, ...MOCK_FRIENDS.map((f) => f.id)],
-    []
-  );
+
+  const groupQuery = useQuery({
+    queryKey: groupQueryKey(id),
+    queryFn: () => backendClient.getGroupGroupsGroupIdGet(id),
+    select: (response) => response.data,
+    enabled: !!id,
+  });
+
+  const membersQuery = useQuery({
+    queryKey: groupMembersQueryKey(id),
+    queryFn: () => backendClient.listGroupUsersGroupsGroupIdUsersGet(id),
+    select: (response) => response.data,
+    enabled: !!id,
+  });
+
+  const debtsQuery = useQuery({
+    queryKey: groupDebtsQueryKey(id),
+    queryFn: () =>
+      backendClient.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(id),
+    select: (response) => response.data,
+    enabled: !!id,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      setPayments([...getPaymentsForGroup(id)]);
-    }, [id])
+      groupQuery.refetch();
+      membersQuery.refetch();
+      debtsQuery.refetch();
+    }, [groupQuery, membersQuery, debtsQuery])
   );
 
-  if (!group) {
+  if (groupQuery.isPending) {
     return (
       <SafeAreaView className="flex-1 bg-app-bg">
-        <View className="flex-1 px-5 py-4 gap-5">
-          <Text className="text-3xl font-bold text-app-text">
-            Group not found
-          </Text>
+        <View className="flex-1 items-center justify-center gap-2">
+          <ActivityIndicator color="#d7e6ff" />
+          <Text className="text-app-muted">Loading group…</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  if (groupQuery.isError || !groupQuery.data) {
+    const message =
+      groupQuery.error instanceof Error
+        ? groupQuery.error.message
+        : "Group not found";
+    return (
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 px-5 py-4 gap-3">
+          <Text className="text-3xl font-bold text-app-text">
+            Group not found
+          </Text>
+          <Text className="text-app-muted">{message}</Text>
+          <Pressable
+            onPress={() => groupQuery.refetch()}
+            className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 self-start"
+          >
+            <Text className="text-app-text font-semibold">Retry</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const group = groupQuery.data;
+  const expenses = [...(group.expenses ?? [])].sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+    if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+      return b.created_at.localeCompare(a.created_at);
+    }
+    return bTime - aTime;
+  });
+  const memberCount = membersQuery.data?.length ?? 0;
+  const memberNameById = new Map(
+    (membersQuery.data ?? []).map((member) => [member.id, member.display_name])
+  );
+
+  const userBalanceEur = debtsQuery.data
+    ? computeUserNetBalanceEur(debtsQuery.data, CURRENT_USER_BACKEND_ID)
+    : null;
   const balanceColor =
-    group.balance > 0
+    userBalanceEur === null || userBalanceEur === 0
+      ? "text-app-text"
+      : userBalanceEur > 0
       ? "text-app-success"
-      : group.balance < 0
-      ? "text-app-danger"
-      : "text-app-text";
+      : "text-app-danger";
+  const balanceSign = userBalanceEur && userBalanceEur > 0 ? "+" : "";
 
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
@@ -61,9 +156,13 @@ export default function GroupDetailScreen() {
               onPress={() => router.push(`/group/${id}/members`)}
               className="h-10 px-3 rounded-full bg-app-surface border border-app-border items-center justify-center"
             >
-              <Text className="text-app-text font-semibold text-[13px]">
-                {getGroupMembers(id).length} users
-              </Text>
+              {membersQuery.isPending ? (
+                <ActivityIndicator color="#d7e6ff" />
+              ) : (
+                <Text className="text-app-text font-semibold text-[13px]">
+                  {memberCount} {memberCount === 1 ? "user" : "users"}
+                </Text>
+              )}
             </Pressable>
             <Pressable className="w-10 h-10 rounded-full bg-app-surface border border-app-border items-center justify-center">
               <Ionicons name="settings-outline" size={20} color="#d7e6ff" />
@@ -71,13 +170,27 @@ export default function GroupDetailScreen() {
           </View>
         </View>
 
+        {group.description ? (
+          <Text className="text-sm text-app-muted">{group.description}</Text>
+        ) : null}
+
         <View className="flex-row gap-3 items-stretch">
           <View className="flex-1 bg-app-surface border border-app-border rounded-xl p-4 gap-[6px]">
             <Text className="text-[13px] text-app-muted">Your balance</Text>
-            <Text className={`text-[28px] font-bold ${balanceColor}`}>
-              {group.balance > 0 ? "+" : ""}
-              {group.balance.toFixed(2)}
-            </Text>
+            {debtsQuery.isPending ? (
+              <ActivityIndicator color="#d7e6ff" />
+            ) : debtsQuery.isError ? (
+              <Text className="text-[13px] text-app-danger">
+                Couldn’t load balance
+              </Text>
+            ) : userBalanceEur === null ? (
+              <Text className="text-[28px] font-bold text-app-text">—</Text>
+            ) : (
+              <Text className={`text-[28px] font-bold ${balanceColor}`}>
+                {balanceSign}
+                {userBalanceEur.toFixed(2)} €
+              </Text>
+            )}
           </View>
           <Pressable className="w-[120px] rounded-xl p-4 items-center justify-center bg-app-primary">
             <Ionicons name="card-outline" size={22} color="#f4f7ff" />
@@ -101,46 +214,63 @@ export default function GroupDetailScreen() {
         </View>
 
         <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-lg font-semibold text-app-text">Payments</Text>
-          {payments.length === 0 ? (
-            <Text className="italic text-app-muted">No payments yet.</Text>
+          <Text className="text-lg font-semibold text-app-text">Expenses</Text>
+          {expenses.length === 0 ? (
+            <Text className="italic text-app-muted">No expenses yet.</Text>
           ) : (
-            payments.map((payment) => {
-              const effect = computeUserBalanceEffect(
-                payment,
-                CURRENT_USER.id,
-                CURRENT_USER.name,
-                fallbackMemberIds
+            expenses.map((expense) => {
+              const payerName =
+                memberNameById.get(expense.paid_by) ?? expense.paid_by;
+              const totalEur = expense.total_amount / 100;
+              const participantCount = Math.max(expense.participants.length, 1);
+              const shareEur = totalEur / participantCount;
+              const involvedAsPayer = expense.paid_by === CURRENT_USER_BACKEND_ID;
+              const involvedAsParticipant = expense.participants.includes(
+                CURRENT_USER_BACKEND_ID
               );
-              const effectColor =
-                effect > 0
+              const isInvolved = involvedAsPayer || involvedAsParticipant;
+
+              let userEffectEur = 0;
+              if (involvedAsPayer) userEffectEur += totalEur;
+              if (involvedAsParticipant) userEffectEur -= shareEur;
+
+              const userEffectColor =
+                userEffectEur > 0
                   ? "text-app-success"
-                  : effect < 0
+                  : userEffectEur < 0
                   ? "text-app-danger"
                   : "text-app-muted";
-              const sign = effect > 0 ? "+" : effect < 0 ? "-" : "";
+              const userEffectSign = userEffectEur > 0 ? "+" : "";
+
               return (
                 <Pressable
-                  key={payment.id}
+                  key={expense.id}
                   onPress={() =>
                     router.push(
-                      `/group/${id}/add-payment?paymentId=${payment.id}`
+                      `/group/${id}/add-payment?paymentId=${expense.id}`
                     )
                   }
                   className="flex-row items-center justify-between bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
                 >
                   <View className="flex-1 pr-2">
                     <Text className="text-[15px] font-semibold text-app-text">
-                      {payment.name}
+                      {expense.description}
                     </Text>
                     <Text className="text-xs text-app-muted mt-[2px]">
-                      {payment.paidBy} paid {payment.amount.toFixed(2)}
+                      {payerName} paid {totalEur.toFixed(2)}
+                    </Text>
+                    <Text className="text-[11px] text-app-muted mt-[2px]">
+                      {formatExpenseDate(expense.created_at)}
                     </Text>
                   </View>
-                  <Text className={`text-base font-bold ${effectColor}`}>
-                    {sign}
-                    {Math.abs(effect).toFixed(2)}
-                  </Text>
+                  {isInvolved ? (
+                    <Text className={`text-base font-bold ${userEffectColor}`}>
+                      {userEffectSign}
+                      {userEffectEur.toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text className="text-xs text-app-muted">Not involved</Text>
+                  )}
                 </Pressable>
               );
             })

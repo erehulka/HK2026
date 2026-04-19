@@ -76,6 +76,18 @@ export function updateDraftReceiptItem(
   }
 }
 
+export function deleteDraftReceiptItem(
+  groupId: string,
+  receiptId: string,
+  itemId: string
+) {
+  const receipt = getDraftReceiptById(groupId, receiptId);
+  if (!receipt) return;
+  const target = receipt.items.find((entry) => entry.id === itemId);
+  if (!target || target.addedToExpenseAt) return;
+  receipt.items = receipt.items.filter((entry) => entry.id !== itemId);
+}
+
 export function markDraftReceiptItemsAsAdded(
   groupId: string,
   receiptId: string,
