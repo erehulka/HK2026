@@ -40,7 +40,7 @@ export default function CreateGroupScreen() {
 
   return (
     <ScrollView className="flex-1 bg-app-bg">
-      <View className="flex-1 px-5 py-4 gap-5">
+      <View className="flex-1 px-5 pt-10 pb-4 gap-5">
         <Text className="text-3xl font-bold text-app-text">Create Group</Text>
         <Text className="text-sm text-app-muted">
           Choose a name and group type.
