@@ -139,15 +139,15 @@ export default function HomeScreen() {
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-white">Spending plan</Text>
-            <Text className="text-sm text-sky-400">Zobraziť detail</Text>
+            <Text className="text-sm text-sky-400">See detail</Text>
           </View>
           <View className="rounded-[18px] border border-white/8 bg-[#232831] p-4">
             <Text className="text-sm text-white/45">Current plan overview</Text>
             <Text className="mt-3 text-3xl font-bold text-emerald-400">
-              + {formatBalance(2127.44)}
+              + {formatBalance(1312.44)}
             </Text>
             <Text className="mt-2 text-sm text-white/55">
-              Odhad zostatku do konca obdobia (zostáva 13 dní)
+              Estimated balance remaining until the end of the period (13 days remaining)
             </Text>
           </View>
         </View>
