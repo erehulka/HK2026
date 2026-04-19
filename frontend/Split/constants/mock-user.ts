@@ -13,4 +13,4 @@ export const CURRENT_USER: User = {
  * gradually migrate screens off the mock data layer onto the FastAPI
  * backend at `BACKEND_BASE_URL`.
  */
-export const CURRENT_USER_BACKEND_ID = "69e3fc46f69112ae1242d6e6";
+export const CURRENT_USER_BACKEND_ID = "69e4816bee8858a7cbcea39e";
