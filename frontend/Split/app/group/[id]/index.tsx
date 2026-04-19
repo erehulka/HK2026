@@ -42,6 +42,16 @@ function computeUserNetBalanceEur(
   return (owedToUserCents - owedByUserCents) / 100;
 }
 
+function formatExpenseDate(isoDate: string) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -110,8 +120,18 @@ export default function GroupDetailScreen() {
   }
 
   const group = groupQuery.data;
-  const expenses = group.expenses ?? [];
+  const expenses = [...(group.expenses ?? [])].sort((a, b) => {
+    const aTime = new Date(a.created_at).getTime();
+    const bTime = new Date(b.created_at).getTime();
+    if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+      return b.created_at.localeCompare(a.created_at);
+    }
+    return bTime - aTime;
+  });
   const memberCount = membersQuery.data?.length ?? 0;
+  const memberNameById = new Map(
+    (membersQuery.data ?? []).map((member) => [member.id, member.display_name])
+  );
 
   const userBalanceEur = debtsQuery.data
     ? computeUserNetBalanceEur(debtsQuery.data, CURRENT_USER_BACKEND_ID)
@@ -198,29 +218,62 @@ export default function GroupDetailScreen() {
           {expenses.length === 0 ? (
             <Text className="italic text-app-muted">No expenses yet.</Text>
           ) : (
-            expenses.map((expense) => (
-              <Pressable
-                key={expense.id}
-                onPress={() =>
-                  router.push(
-                    `/group/${id}/add-payment?paymentId=${expense.id}`
-                  )
-                }
-                className="flex-row items-center justify-between bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
-              >
-                <View className="flex-1 pr-2">
-                  <Text className="text-[15px] font-semibold text-app-text">
-                    {expense.description}
-                  </Text>
-                  <Text className="text-xs text-app-muted mt-[2px]">
-                    {expense.split_type} · paid by {expense.paid_by}
-                  </Text>
-                </View>
-                <Text className="text-base font-bold text-app-text">
-                  {(expense.total_amount / 100).toFixed(2)}
-                </Text>
-              </Pressable>
-            ))
+            expenses.map((expense) => {
+              const payerName =
+                memberNameById.get(expense.paid_by) ?? expense.paid_by;
+              const totalEur = expense.total_amount / 100;
+              const participantCount = Math.max(expense.participants.length, 1);
+              const shareEur = totalEur / participantCount;
+              const involvedAsPayer = expense.paid_by === CURRENT_USER_BACKEND_ID;
+              const involvedAsParticipant = expense.participants.includes(
+                CURRENT_USER_BACKEND_ID
+              );
+              const isInvolved = involvedAsPayer || involvedAsParticipant;
+
+              let userEffectEur = 0;
+              if (involvedAsPayer) userEffectEur += totalEur;
+              if (involvedAsParticipant) userEffectEur -= shareEur;
+
+              const userEffectColor =
+                userEffectEur > 0
+                  ? "text-app-success"
+                  : userEffectEur < 0
+                  ? "text-app-danger"
+                  : "text-app-muted";
+              const userEffectSign = userEffectEur > 0 ? "+" : "";
+
+              return (
+                <Pressable
+                  key={expense.id}
+                  onPress={() =>
+                    router.push(
+                      `/group/${id}/add-payment?paymentId=${expense.id}`
+                    )
+                  }
+                  className="flex-row items-center justify-between bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
+                >
+                  <View className="flex-1 pr-2">
+                    <Text className="text-[15px] font-semibold text-app-text">
+                      {expense.description}
+                    </Text>
+                    <Text className="text-xs text-app-muted mt-[2px]">
+                      {payerName} paid {totalEur.toFixed(2)}
+                    </Text>
+                    <Text className="text-[11px] text-app-muted mt-[2px]">
+                      {formatExpenseDate(expense.created_at)}
+                    </Text>
+                  </View>
+                  {isInvolved ? (
+                    <Text className={`text-base font-bold ${userEffectColor}`}>
+                      {userEffectSign}
+                      {userEffectEur.toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text className="text-xs text-app-muted">Not involved</Text>
+                  )}
+                </Pressable>
+              );
+            })
           )}
         </View>
       </ScrollView>

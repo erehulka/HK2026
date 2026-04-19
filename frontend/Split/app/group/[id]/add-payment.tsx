@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -13,15 +14,32 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ExpenseSplitType } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
-import { CURRENT_USER, CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
+import {
+  ExpenseItemsList,
+  type ExpenseItemsListItem,
+} from "@/components/expense-items-list";
 import {
   countRemainingDraftReceiptItems,
   markDraftReceiptItemsAsAdded,
 } from "@/constants/mock-receipts";
+import { CURRENT_USER, CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
 type Member = {
   id: string;
   name: string;
+};
+
+type ReceiptExpenseItemPayload = {
+  id: string;
+  name: string;
+  amountCents: number;
+};
+
+type ExpenseItemDraft = {
+  id: string;
+  name: string;
+  priceInput: string;
+  isPersisted: boolean;
 };
 
 type DropdownKey = "paidBy" | "splitBetween" | null;
@@ -34,6 +52,7 @@ export default function AddPaymentScreen() {
     prefillAmount,
     sourceReceiptId,
     sourceReceiptItemIds,
+    sourceReceiptItemsPayload,
     returnToGroupIfReceiptDone,
   } = useLocalSearchParams<{
     id: string;
@@ -42,6 +61,7 @@ export default function AddPaymentScreen() {
     prefillAmount?: string;
     sourceReceiptId?: string;
     sourceReceiptItemIds?: string;
+    sourceReceiptItemsPayload?: string;
     returnToGroupIfReceiptDone?: string;
   }>();
   const queryClient = useQueryClient();
@@ -50,16 +70,21 @@ export default function AddPaymentScreen() {
     queryKey: ["groups", groupId, "members"],
     queryFn: () => backendClient.listGroupUsersGroupsGroupIdUsersGet(groupId),
     select: (response) =>
-      response.data.map((user): Member => ({
-        id: user.id,
-        name: user.display_name,
-      })),
+      response.data.map(
+        (user): Member => ({
+          id: user.id,
+          name: user.display_name,
+        })
+      ),
     enabled: !!groupId,
   });
   const existingExpenseQuery = useQuery({
     queryKey: ["groups", groupId, "expenses", paymentId],
     queryFn: () =>
-      backendClient.getExpenseGroupsGroupIdExpensesExpenseIdGet(groupId, paymentId!),
+      backendClient.getExpenseGroupsGroupIdExpensesExpenseIdGet(
+        groupId,
+        paymentId!
+      ),
     select: (response) => response.data,
     enabled: !!groupId && !!paymentId,
   });
@@ -78,15 +103,59 @@ export default function AddPaymentScreen() {
   const [paidById, setPaidById] = useState<string>(CURRENT_USER_BACKEND_ID);
   const [owesIds, setOwesIds] = useState<string[]>([]);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey>(null);
+  const [expenseItemsDraft, setExpenseItemsDraft] = useState<
+    ExpenseItemDraft[]
+  >([]);
+  const [deletedPersistedItemIds, setDeletedPersistedItemIds] = useState<
+    string[]
+  >([]);
+
+  const receiptExpenseItems = useMemo<ReceiptExpenseItemPayload[]>(() => {
+    if (!sourceReceiptItemsPayload) return [];
+    try {
+      const parsed = JSON.parse(
+        sourceReceiptItemsPayload
+      ) as ReceiptExpenseItemPayload[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item) =>
+          !!item &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          typeof item.amountCents === "number"
+      );
+    } catch {
+      return [];
+    }
+  }, [sourceReceiptItemsPayload]);
 
   const trimmedName = name.trim();
   const numericAmount = parseFloat(amount.replace(",", "."));
   const amountCents = Math.round(numericAmount * 100);
+  const existingItems = existingExpenseQuery.data?.items ?? [];
+  const isReceiptCreateWithItems = !isEditing && expenseItemsDraft.length > 0;
+  const isReceiptMultiItemCreate =
+    isReceiptCreateWithItems && expenseItemsDraft.length > 1;
+  const isSingleItemExpense = isEditing && expenseItemsDraft.length === 1;
+  const isMultiItemExpense = isEditing && expenseItemsDraft.length > 1;
+  const draftItemsTotalCents = expenseItemsDraft.reduce((sum, item) => {
+    const parsed = parseFloat(item.priceInput.replace(",", "."));
+    return isNaN(parsed) ? sum : sum + Math.round(parsed * 100);
+  }, 0);
+  const singleEditableItem = isSingleItemExpense
+    ? expenseItemsDraft[0]
+    : undefined;
+  const areDraftItemsValid = expenseItemsDraft.every((item) => {
+    const parsed = parseFloat(item.priceInput.replace(",", "."));
+    return item.name.trim().length > 0 && !isNaN(parsed) && parsed > 0;
+  });
   const canSave =
     trimmedName.length > 0 &&
     !isNaN(numericAmount) &&
     numericAmount > 0 &&
     owesIds.length > 0 &&
+    (!isReceiptCreateWithItems || areDraftItemsValid) &&
+    (!isMultiItemExpense || areDraftItemsValid) &&
     !membersQuery.isPending &&
     (!isEditing || !existingExpenseQuery.isPending);
 
@@ -106,10 +175,40 @@ export default function AddPaymentScreen() {
     if (!isEditing || !existingExpenseQuery.data) return;
     const expense = existingExpenseQuery.data;
     setName(expense.description);
-    setAmount((expense.total_amount / 100).toFixed(2));
+    const computedTotal = expense.items.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
+    setExpenseItemsDraft(
+      expense.items.map((item) => ({
+        id: item.id,
+        name: item.description,
+        priceInput: (item.amount / 100).toFixed(2),
+        isPersisted: true,
+      }))
+    );
+    setDeletedPersistedItemIds([]);
+    setAmount((computedTotal / 100).toFixed(2));
     setPaidById(expense.paid_by);
     setOwesIds(expense.participants);
   }, [isEditing, existingExpenseQuery.data]);
+
+  useEffect(() => {
+    if (isEditing || receiptExpenseItems.length === 0) return;
+    setExpenseItemsDraft(
+      receiptExpenseItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        priceInput: (item.amountCents / 100).toFixed(2),
+        isPersisted: false,
+      }))
+    );
+  }, [isEditing, receiptExpenseItems]);
+
+  useEffect(() => {
+    if (!(isMultiItemExpense || isReceiptMultiItemCreate)) return;
+    setAmount((draftItemsTotalCents / 100).toFixed(2));
+  }, [isMultiItemExpense, isReceiptMultiItemCreate, draftItemsTotalCents]);
 
   const toggleDropdown = (key: Exclude<DropdownKey, null>) => {
     setOpenDropdown((prev) => (prev === key ? null : key));
@@ -144,6 +243,51 @@ export default function AddPaymentScreen() {
         : [],
     [sourceReceiptItemIds]
   );
+  const effectiveSourceItemIds = useMemo(
+    () =>
+      sourceItemIds.filter((itemId) =>
+        expenseItemsDraft.some((item) => item.id === itemId)
+      ),
+    [sourceItemIds, expenseItemsDraft]
+  );
+
+  const handleItemNameChange = (itemId: string, value: string) => {
+    setExpenseItemsDraft((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, name: value } : item))
+    );
+  };
+
+  const handleItemPriceInputChange = (itemId: string, value: string) => {
+    setExpenseItemsDraft((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, priceInput: value } : item
+      )
+    );
+  };
+
+  const handleItemPriceBlur = (itemId: string) => {
+    setExpenseItemsDraft((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const parsed = parseFloat(item.priceInput.replace(",", "."));
+        if (isNaN(parsed) || parsed <= 0)
+          return { ...item, priceInput: "0.00" };
+        return { ...item, priceInput: parsed.toFixed(2) };
+      })
+    );
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    setExpenseItemsDraft((prev) => {
+      const target = prev.find((item) => item.id === itemId);
+      if (target?.isPersisted) {
+        setDeletedPersistedItemIds((current) =>
+          current.includes(itemId) ? current : [...current, itemId]
+        );
+      }
+      return prev.filter((item) => item.id !== itemId);
+    });
+  };
 
   const savePaymentMutation = useMutation({
     mutationFn: async () => {
@@ -158,32 +302,99 @@ export default function AddPaymentScreen() {
             split_type: ExpenseSplitType.Equal,
           }
         );
+
+        for (const deletedItemId of deletedPersistedItemIds) {
+          await backendClient.deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(
+            groupId,
+            paymentId,
+            deletedItemId
+          );
+        }
+
+        const existingById = new Map(
+          existingItems.map((item) => [item.id, item])
+        );
+        for (const draftItem of expenseItemsDraft) {
+          if (!draftItem.isPersisted) continue;
+          const originalItem = existingById.get(draftItem.id);
+          if (!originalItem) continue;
+          const nextAmountCents = Math.round(
+            parseFloat(draftItem.priceInput.replace(",", ".")) * 100
+          );
+          const shouldUpdateName = draftItem.name !== originalItem.description;
+          const shouldUpdateAmount =
+            !isNaN(nextAmountCents) && nextAmountCents !== originalItem.amount;
+          if (!shouldUpdateName && !shouldUpdateAmount) continue;
+          await backendClient.updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch(
+            groupId,
+            paymentId,
+            draftItem.id,
+            {
+              description: shouldUpdateName ? draftItem.name : undefined,
+              amount: shouldUpdateAmount ? nextAmountCents : undefined,
+            }
+          );
+        }
+
+        if (singleEditableItem && singleEditableItem.isPersisted) {
+          await backendClient.updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch(
+            groupId,
+            paymentId,
+            singleEditableItem.id,
+            { amount: amountCents }
+          );
+        }
+
         return;
       }
-      await backendClient.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(groupId, {
-        description: trimmedName,
-        paidBy: paidById,
-        participantUserIds: owesIds,
-        splitType: ExpenseSplitType.Equal,
-        items: [
-          {
-            description: trimmedName,
-            amount: amountCents,
-          },
-        ],
-      });
+      await backendClient.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
+        groupId,
+        {
+          description: trimmedName,
+          paidBy: paidById,
+          participantUserIds: owesIds,
+          splitType: ExpenseSplitType.Equal,
+          items: isReceiptCreateWithItems
+            ? expenseItemsDraft.map((item) => ({
+                description: item.name.trim(),
+                amount:
+                  expenseItemsDraft.length === 1
+                    ? amountCents
+                    : Math.round(
+                        parseFloat(item.priceInput.replace(",", ".")) * 100
+                      ),
+              }))
+            : [
+                {
+                  description: trimmedName,
+                  amount: amountCents,
+                },
+              ],
+        }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups", groupId] });
       queryClient.invalidateQueries({ queryKey: ["groups", groupId, "debts"] });
-      queryClient.invalidateQueries({ queryKey: ["users", CURRENT_USER_BACKEND_ID, "groups"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", CURRENT_USER_BACKEND_ID, "groups"],
+      });
       if (paymentId) {
-        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "expenses", paymentId] });
+        queryClient.invalidateQueries({
+          queryKey: ["groups", groupId, "expenses", paymentId],
+        });
       }
-      if (sourceReceiptId && sourceItemIds.length > 0) {
-        markDraftReceiptItemsAsAdded(groupId, sourceReceiptId, sourceItemIds);
+      if (sourceReceiptId && effectiveSourceItemIds.length > 0) {
+        markDraftReceiptItemsAsAdded(
+          groupId,
+          sourceReceiptId,
+          effectiveSourceItemIds
+        );
         if (returnToGroupIfReceiptDone === "1") {
-          const remaining = countRemainingDraftReceiptItems(groupId, sourceReceiptId);
+          const remaining = countRemainingDraftReceiptItems(
+            groupId,
+            sourceReceiptId
+          );
           if (remaining === 0) {
             router.replace(`/group/${groupId}`);
             return;
@@ -193,11 +404,42 @@ export default function AddPaymentScreen() {
       router.back();
     },
   });
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async () => {
+      if (!paymentId) return;
+      await backendClient.deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
+        groupId,
+        paymentId
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["groups", groupId, "debts"] });
+      queryClient.invalidateQueries({
+        queryKey: ["users", CURRENT_USER_BACKEND_ID, "groups"],
+      });
+      if (paymentId) {
+        queryClient.invalidateQueries({
+          queryKey: ["groups", groupId, "expenses", paymentId],
+        });
+      }
+      router.back();
+    },
+  });
 
   const handleSave = () => {
     if (!canSave || savePaymentMutation.isPending) return;
     savePaymentMutation.mutate();
   };
+
+  const multiItemsListItems: ExpenseItemsListItem[] = expenseItemsDraft.map(
+    (item) => ({
+      id: item.id,
+      name: item.name,
+      priceInput: item.priceInput,
+      isDisabled: false,
+    })
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
@@ -232,14 +474,26 @@ export default function AddPaymentScreen() {
                 placeholder="0.00"
                 placeholderTextColor="#7c90c6"
                 keyboardType="decimal-pad"
-                editable={!savePaymentMutation.isPending && !isEditing}
+                editable={
+                  !savePaymentMutation.isPending &&
+                  (!isEditing || isSingleItemExpense) &&
+                  !isReceiptMultiItemCreate
+                }
                 className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text text-right"
               />
             </View>
           </View>
-          {isEditing ? (
+          {isSingleItemExpense ? (
             <Text className="text-[12px] text-app-muted">
-              Amount changes are not supported by this endpoint yet.
+              Single-item expense: editing amount updates that item value.
+            </Text>
+          ) : isReceiptMultiItemCreate ? (
+            <Text className="text-[12px] text-app-muted">
+              Receipt expense with multiple items: amount is sum of item values.
+            </Text>
+          ) : isMultiItemExpense ? (
+            <Text className="text-[12px] text-app-muted">
+              Multi-item expense: amount is the sum of item values.
             </Text>
           ) : null}
         </View>
@@ -350,8 +604,36 @@ export default function AddPaymentScreen() {
           )}
         </View>
 
+        {isMultiItemExpense || isReceiptMultiItemCreate ? (
+          <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
+            <View>
+              <Text className="text-[15px] font-semibold text-app-text">
+                {expenseItemsDraft.length} items
+              </Text>
+            </View>
+            <ScrollView
+              className="max-h-[220px]"
+              contentContainerClassName="gap-2 pb-1"
+              nestedScrollEnabled
+            >
+              <ExpenseItemsList
+                items={multiItemsListItems}
+                showSelection={false}
+                editable
+                onNameChange={handleItemNameChange}
+                onPriceInputChange={handleItemPriceInputChange}
+                onPriceBlur={handleItemPriceBlur}
+                enableSwipeDelete
+                onDelete={handleDeleteItem}
+              />
+            </ScrollView>
+          </View>
+        ) : null}
+
         <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">Split method</Text>
+          <Text className="text-base font-semibold text-app-text">
+            Split method
+          </Text>
           <Text className="text-[13px] text-app-muted">
             Quick payment currently creates an equal split for selected members.
           </Text>
@@ -382,14 +664,20 @@ export default function AddPaymentScreen() {
         <View className="flex-row gap-3 mt-2">
           <Pressable
             onPress={() => router.back()}
-            disabled={savePaymentMutation.isPending}
+            disabled={
+              savePaymentMutation.isPending || deleteExpenseMutation.isPending
+            }
             className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
           >
             <Text className="text-app-text font-semibold">Cancel</Text>
           </Pressable>
           <Pressable
             onPress={handleSave}
-            disabled={!canSave || savePaymentMutation.isPending}
+            disabled={
+              !canSave ||
+              savePaymentMutation.isPending ||
+              deleteExpenseMutation.isPending
+            }
             className={`flex-1 rounded-[10px] py-3 items-center ${
               canSave && !savePaymentMutation.isPending
                 ? "bg-app-primary"
@@ -410,6 +698,25 @@ export default function AddPaymentScreen() {
             )}
           </Pressable>
         </View>
+
+        {isEditing ? (
+          <Pressable
+            onPress={() => deleteExpenseMutation.mutate()}
+            disabled={
+              savePaymentMutation.isPending || deleteExpenseMutation.isPending
+            }
+            className="rounded-[10px] py-3 items-center bg-app-danger flex-row justify-center gap-2"
+          >
+            {deleteExpenseMutation.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={16} color="#fff" />
+                <Text className="text-white font-semibold">Delete expense</Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
