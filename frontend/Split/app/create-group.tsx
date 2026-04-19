@@ -17,7 +17,6 @@ import type { GroupOut, UserOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
 import { InviteFriends } from "@/components/invite-friends";
 import type { Friend } from "@/constants/mock-friends";
-import { GroupType } from "@/constants/mock-groups";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
 const MONGO_OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
@@ -61,7 +60,6 @@ export default function CreateGroupScreen() {
 
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [groupType, setGroupType] = useState<GroupType>("basic");
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
 
   const trimmedName = groupName.trim();
