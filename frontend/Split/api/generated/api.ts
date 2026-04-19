@@ -158,6 +158,10 @@ export interface GroupCreate {
      * Longer text describing the group; may be empty
      */
     'description': string;
+    /**
+     * User ids to add as initial group members
+     */
+    'member_user_ids'?: Array<string>;
 }
 /**
  * Group returned with populated expense documents.

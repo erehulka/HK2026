@@ -46,8 +46,9 @@ export default function HomeScreen() {
     select: (response: AxiosResponse<GroupOut[]>) => response.data,
   });
   const previewGroups = groups?.slice(0, 2) ?? [];
-  const previewBalanceQueries = useQueries({
-    queries: previewGroups.map((group) => ({
+  const hiddenGroupCount = Math.max((groups?.length ?? 0) - previewGroups.length, 0);
+  const groupBalanceQueries = useQueries({
+    queries: (groups ?? []).map((group) => ({
       queryKey: groupDebtsQueryKey(group.id),
       queryFn: () =>
         backendClient.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
@@ -58,7 +59,32 @@ export default function HomeScreen() {
     })),
   });
 
-  const accountName = "Moj bezny ucet";
+  const groupBalanceById = new Map(
+    (groups ?? []).map((group, index) => [group.id, groupBalanceQueries[index]])
+  );
+
+  const overallBalanceEur = (groups ?? []).reduce((total, group) => {
+    const query = groupBalanceById.get(group.id);
+    if (!query?.data) return total;
+    const net = computeUserNetBalanceEur(query.data, CURRENT_USER_BACKEND_ID);
+    return total + (net ?? 0);
+  }, 0);
+
+  const overallBalanceLabel =
+    overallBalanceEur > 0
+      ? "Overall you are owed:"
+      : overallBalanceEur < 0
+      ? "Overall you owe:"
+      : "Overall settled:";
+
+  const overallBalanceColor =
+    overallBalanceEur > 0
+      ? "text-emerald-400"
+      : overallBalanceEur < 0
+      ? "text-rose-400"
+      : "text-white/55";
+
+  const accountName = "My Personal Account";
   const accountIban = "SK86 1100 0000 0026 1100 0000";
   const accountBalance = 2154.43;
 
@@ -108,25 +134,16 @@ export default function HomeScreen() {
               </View>
             </Pressable>
 
-            <View className="h-12 w-16 items-center justify-center ml-8">
+            <View className="h-12 w-16 items-center justify-center">
               <Image
                 source={require("../../assets/images/logo.png")}
                 style={{ width: 52, height: 52 }}
                 contentFit="contain"
               />
             </View>
-
-            <Pressable
-              onPress={() => router.push("/create-group")}
-              className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2"
-            >
-              <Text className="text-sm font-semibold text-sky-400">
-                Upraviť
-              </Text>
-            </Pressable>
           </View>
 
-          <Text className="text-2xl font-bold text-white">Účty</Text>
+          <Text className="text-2xl font-bold text-white">Accounts</Text>
 
           <View className="rounded-[18px] border border-white/8 bg-[#1a1d24] p-4">
             <View className="rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
@@ -138,7 +155,7 @@ export default function HomeScreen() {
               <View className="my-4 h-px bg-white/5" />
 
               <Text className="text-xs uppercase tracking-[0.18em] text-white/40">
-                Aktuálny zostatok
+                Current balance
               </Text>
               <View className="mt-2 flex-row items-end gap-2">
                 <Text className="text-3xl font-bold text-white">
@@ -164,7 +181,7 @@ export default function HomeScreen() {
             {!isPending &&
               !isError &&
               previewGroups.map((group, index) => {
-                const balanceQuery = previewBalanceQueries[index];
+                const balanceQuery = groupBalanceById.get(group.id);
                 const balanceEur = balanceQuery?.data
                   ? computeUserNetBalanceEur(
                       balanceQuery.data,
@@ -203,7 +220,29 @@ export default function HomeScreen() {
                   </Pressable>
                 );
               })}
+
+            {!isPending && !isError && hiddenGroupCount > 0 ? (
+              <Pressable
+                onPress={openGroupsHome}
+                className="w-[56px] items-center justify-center rounded-[14px] border border-white/15 bg-[#232831]"
+              >
+                <Text className="text-xl font-bold text-white/75">+{hiddenGroupCount}</Text>
+              </Pressable>
+            ) : null}
           </View>
+
+          {isPending ? (
+            <Text className="text-sm text-white/45">Loading group summary...</Text>
+          ) : isError ? (
+            <Text className="text-sm text-rose-400">Couldn’t load group summary</Text>
+          ) : (
+            <View className="flex-row items-center justify-between gap-3">
+              <Text className="text-sm text-white/55">{overallBalanceLabel}</Text>
+              <Text className={`text-lg font-semibold ${overallBalanceColor}`}>
+                {formatBalance(overallBalanceEur)}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">

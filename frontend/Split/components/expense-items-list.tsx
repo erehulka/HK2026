@@ -40,10 +40,10 @@ export function ExpenseItemsList({
     canEdit: boolean
   ) => (
     <View
-      className={`rounded-[10px] border px-3 py-[10px] gap-2 ${
+      className={`rounded-[14px] border px-3 py-[10px] gap-2 ${
         isDisabled
-          ? "bg-app-card border-app-border opacity-50"
-          : "bg-app-card border-app-border-soft"
+          ? "bg-[#171a20] border-white/8 opacity-55"
+          : "bg-[#171a20] border-white/8"
       }`}
     >
       {canEdit ? (
@@ -55,12 +55,12 @@ export function ExpenseItemsList({
               }}
               className={`w-[22px] h-[22px] rounded-md border items-center justify-center ${
                 isSelected && !isDisabled
-                  ? "bg-white border-white"
-                  : "bg-app-card border-app-input-border"
+                  ? "bg-sky-400 border-sky-400"
+                  : "bg-transparent border-[#475264]"
               }`}
             >
               {isSelected && !isDisabled ? (
-                <Text className="font-bold text-app-border-soft">✓</Text>
+                <Text className="font-bold text-[#0f1115]">✓</Text>
               ) : null}
             </Pressable>
           ) : null}
@@ -69,8 +69,8 @@ export function ExpenseItemsList({
             onChangeText={(value) => onNameChange?.(item.id, value)}
             editable
             placeholder="Item name"
-            placeholderTextColor="#7c90c6"
-            className="flex-1 bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text"
+            placeholderTextColor="#9aa1ad"
+            className="flex-1 rounded-[10px] border border-white/5 bg-[#2a3038] px-3 py-[10px] text-white"
           />
           <TextInput
             value={item.priceInput}
@@ -78,9 +78,9 @@ export function ExpenseItemsList({
             onBlur={() => onPriceBlur?.(item.id)}
             editable
             placeholder="0.00"
-            placeholderTextColor="#7c90c6"
+            placeholderTextColor="#9aa1ad"
             keyboardType="decimal-pad"
-            className="w-[110px] bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text text-right"
+            className="w-[92px] rounded-[10px] border border-white/5 bg-[#2a3038] px-3 py-[10px] text-right text-white"
           />
         </View>
       ) : (
@@ -92,21 +92,21 @@ export function ExpenseItemsList({
               }}
               className={`w-[22px] h-[22px] rounded-md border items-center justify-center ${
                 isSelected && !isDisabled
-                  ? "bg-white border-white"
-                  : "bg-app-card border-app-input-border"
+                  ? "bg-sky-400 border-sky-400"
+                  : "bg-transparent border-[#475264]"
               }`}
             >
               {isSelected && !isDisabled ? (
-                <Text className="font-bold text-app-border-soft">✓</Text>
+                <Text className="font-bold text-[#0f1115]">✓</Text>
               ) : null}
             </Pressable>
           ) : null}
-          <Text className="text-[15px] text-app-text flex-1">{item.name}</Text>
-          <Text className="text-[14px] font-semibold text-app-text">{item.priceInput}</Text>
+          <Text className="flex-1 text-[15px] text-white/95">{item.name}</Text>
+          <Text className="text-[14px] font-semibold text-white/95">{item.priceInput}</Text>
         </View>
       )}
       {isDisabled && showSelection ? (
-        <Text className="text-xs text-app-muted">Already added to an expense</Text>
+        <Text className="text-xs text-white/45">Already added to an expense</Text>
       ) : null}
     </View>
   );
@@ -125,7 +125,7 @@ export function ExpenseItemsList({
               renderRightActions={() => (
                 <Pressable
                   onPress={() => onDelete(item.id)}
-                  className="w-[84px] rounded-[10px] bg-app-danger items-center justify-center ml-2"
+                  className="ml-2 w-[84px] items-center justify-center rounded-[12px] bg-rose-600"
                 >
                   <Text className="text-white font-semibold">Delete</Text>
                 </Pressable>

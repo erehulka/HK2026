@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -5,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -184,7 +186,7 @@ export default function AddReceiptScreen() {
       const result = mapProcessedReceiptToDraftUploadResult(data, groupId);
       const draft = createDraftReceiptFromUpload(groupId, result);
       loadDraftReceipt(draft);
-      router.push(
+      router.replace(
         `/group/${groupId}/add-receipt?receiptId=${encodeURIComponent(
           draft.id
         )}`
@@ -293,6 +295,20 @@ export default function AddReceiptScreen() {
       const numeric = parseFloat(item.priceInput.replace(",", "."));
       return item.name.trim().length > 0 && !isNaN(numeric) && numeric > 0;
     });
+  const selectedEditableCount = selectedEditableItems.length;
+  const remainingEditableCount = remainingEditableItems.length;
+  const allRemainingSelected =
+    remainingEditableCount > 0 &&
+    selectedEditableCount === remainingEditableCount;
+
+  const toggleSelectAllRemaining = () => {
+    if (remainingEditableCount === 0) return;
+    if (allRemainingSelected) {
+      setSelectedItemIds([]);
+      return;
+    }
+    setSelectedItemIds(remainingEditableItems.map((item) => item.id));
+  };
 
   const pushToAddExpenseForItems = (
     items: ReceiptItemEditor[],
@@ -345,40 +361,38 @@ export default function AddReceiptScreen() {
 
   if (!permission) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg items-center justify-center px-5">
-        <Text className="text-app-text">Loading camera permission...</Text>
+      <SafeAreaView className="flex-1 bg-[#0f1115] items-center justify-center px-5">
+        <Text className="text-white/70">Loading camera permission...</Text>
       </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg px-5 pt-16 gap-4">
-        <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
-        <View className="bg-app-surface border border-app-border rounded-xl p-4 gap-3">
-          <Text className="text-app-text">
+      <SafeAreaView className="flex-1 bg-[#0f1115] px-5 pt-16 gap-4">
+        <Text className="text-3xl font-bold text-white">Add a receipt</Text>
+        <View className="gap-3 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <Text className="text-white/70">
             Camera access is needed to take a photo. You can also choose one
             from files.
           </Text>
           <Pressable
             onPress={handlePickFromFiles}
-            className="rounded-[10px] py-3 items-center bg-app-primary"
+            className="rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
           >
-            <Text className="text-app-text font-semibold">
-              Choose from files
-            </Text>
+            <Text className="text-white font-semibold">Choose from files</Text>
           </Pressable>
           <Pressable
             onPress={requestPermission}
-            className="rounded-[10px] py-3 items-center bg-app-primary"
+            className="rounded-[12px] py-3 items-center bg-[#2b6fff]"
           >
-            <Text className="text-app-text font-semibold">Allow camera</Text>
+            <Text className="text-white font-semibold">Allow camera</Text>
           </Pressable>
           <Pressable
             onPress={() => router.back()}
-            className="rounded-[10px] py-3 items-center bg-app-cancel"
+            className="rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
           >
-            <Text className="text-app-text font-semibold">Cancel</Text>
+            <Text className="text-white font-semibold">Cancel</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -387,126 +401,154 @@ export default function AddReceiptScreen() {
 
   if (receiptId) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg">
+      <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="px-5 pt-16 pb-4 gap-3">
-          <Text className="text-3xl font-bold text-app-text">
-            Add a receipt
-          </Text>
-          <Text className="text-app-muted">
-            Name the receipt, fix scanned items, and add selected items as
-            expenses.
-          </Text>
+          <Text className="text-3xl font-bold text-white">Create expenses</Text>
         </View>
 
         <View className="px-5 pb-6 flex-1 gap-4">
-          <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-2">
-            <Text className="text-[13px] text-app-muted">Receipt name</Text>
+          <View className="rounded-[22px] border border-white/8 bg-[#171a20] p-[14px] gap-2">
+            <Text className="text-[13px] text-white/45">Receipt name</Text>
             <TextInput
               value={receiptName}
               onChangeText={handleReceiptNameChange}
               placeholder="e.g. Weekly groceries"
-              placeholderTextColor="#7c90c6"
-              className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text"
+              placeholderTextColor="#9aa1ad"
+              className="rounded-[10px] border border-white/10 bg-[#232831] px-3 py-[10px] text-white"
             />
           </View>
 
-          <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-2 flex-1">
-            <Text className="text-base font-semibold text-app-text">
-              Receipt items
+          <View className="px-1">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-base font-semibold text-white">
+                Receipt items
+              </Text>
+              <Pressable
+                onPress={toggleSelectAllRemaining}
+                disabled={remainingEditableCount === 0}
+              >
+                <Text
+                  className={`text-sm ${
+                    remainingEditableCount === 0
+                      ? "text-white/25"
+                      : "text-sky-400"
+                  }`}
+                >
+                  {allRemainingSelected ? "Clear" : "Select all"}
+                </Text>
+              </Pressable>
+            </View>
+            <Text className="mt-1 text-xs text-white/45">
+              Selected {selectedEditableCount} of {remainingEditableCount}{" "}
+              remaining
             </Text>
-            <ScrollView
-              className="flex-1"
-              contentContainerClassName="gap-2 pb-2"
-              showsVerticalScrollIndicator
-            >
-              <ExpenseItemsList
-                items={receiptItemListItems}
-                showSelection
-                selectedItemIds={selectedItemIds}
-                onToggleSelection={toggleItemSelection}
-                editable
-                onNameChange={handleItemNameChange}
-                onPriceInputChange={handleItemPriceInputChange}
-                onPriceBlur={handleItemPriceBlur}
-                enableSwipeDelete
-                onDelete={handleDeleteItem}
-              />
-            </ScrollView>
           </View>
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="gap-2 pb-2"
+            showsVerticalScrollIndicator
+          >
+            <ExpenseItemsList
+              items={receiptItemListItems}
+              showSelection
+              selectedItemIds={selectedItemIds}
+              onToggleSelection={toggleItemSelection}
+              editable
+              onNameChange={handleItemNameChange}
+              onPriceInputChange={handleItemPriceInputChange}
+              onPriceBlur={handleItemPriceBlur}
+              enableSwipeDelete
+              onDelete={handleDeleteItem}
+            />
+          </ScrollView>
 
-          <View className="gap-3">
+          <View className="flex-row gap-3">
             <Pressable
               onPress={handleAddSelectedAsExpense}
               disabled={!canAddSelected}
-              className={`rounded-[10px] py-3 items-center ${
-                canAddSelected ? "bg-app-primary" : "bg-app-primary-dim"
+              className={`flex-1 rounded-[12px] py-3 items-center ${
+                canAddSelected ? "bg-[#0ea5e9]" : "bg-[#0ea5e9]/40"
               }`}
             >
-              <Text className="text-app-text font-semibold">
-                Add selected as expense
+              <Text
+                numberOfLines={1}
+                className="text-white font-semibold text-[13px]"
+              >
+                {selectedEditableCount > 0
+                  ? `Add selected (${selectedEditableCount})`
+                  : "Add selected"}
               </Text>
             </Pressable>
             <Pressable
               onPress={handleAddAllRemainingAsExpense}
               disabled={!canAddAllRemaining}
-              className={`rounded-[10px] py-3 items-center ${
-                canAddAllRemaining ? "bg-app-primary" : "bg-app-primary-dim"
+              className={`flex-1 rounded-[12px] py-3 items-center ${
+                canAddAllRemaining ? "bg-[#2b6fff]" : "bg-[#2b6fff]/40"
               }`}
             >
-              <Text className="text-app-text font-semibold">
-                Add all remaining as one expense
+              <Text
+                numberOfLines={1}
+                className="text-white font-semibold text-[13px]"
+              >
+                {remainingEditableCount > 0
+                  ? `Add all (${remainingEditableCount})`
+                  : "Add all"}
               </Text>
             </Pressable>
-            <Pressable
-              onPress={() => router.back()}
-              className="rounded-[10px] py-3 items-center bg-app-cancel"
-            >
-              <Text className="text-app-text font-semibold">Close</Text>
-            </Pressable>
           </View>
+          {remainingEditableCount === 0 ? (
+            <Text className="text-xs text-white/45 px-1">
+              All receipt items are already added to expenses.
+            </Text>
+          ) : !canAddSelected && selectedEditableCount > 0 ? (
+            <Text className="text-xs text-white/45 px-1">
+              Some selected items are incomplete. Fill in name and amount first.
+            </Text>
+          ) : null}
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-bg">
+    <SafeAreaView className="flex-1 bg-[#0f1115]">
       <View className="px-5 pt-16 pb-4 gap-3">
-        <Text className="text-3xl font-bold text-app-text">Add a receipt</Text>
-        <Text className="text-app-muted">
+        <Text className="text-3xl font-bold text-white">Add a receipt</Text>
+        <Text className="text-white/55">
           Take a photo or choose from files, then send it to backend.
         </Text>
       </View>
 
-      <View className="mx-5 mb-4 rounded-xl overflow-hidden border border-app-border flex-1">
+      <View className="mx-5 mb-4 flex-1 overflow-hidden rounded-[22px] border border-white/10">
         {!photoUri ? (
           <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back" />
         ) : (
-          <View className="flex-1 items-center justify-center bg-app-surface px-5">
-            <Text className="text-app-text text-center">
-              Photo captured and ready to upload.
-            </Text>
-            <Text className="text-app-muted text-center mt-2">{photoUri}</Text>
-          </View>
+          <Image
+            source={{ uri: photoUri }}
+            className="h-full w-full"
+            resizeMode="cover"
+          />
         )}
       </View>
 
       <View className="px-5 pb-6 gap-3">
         {!photoUri ? (
-          <View className="gap-3">
+          <View className="flex-row gap-3">
             <Pressable
               onPress={handlePickFromFiles}
-              className="rounded-[10px] py-3 items-center bg-app-primary"
+              className="flex-1 rounded-[12px] py-3 items-center justify-center bg-[#232831] border border-white/10 flex-row gap-2"
             >
-              <Text className="text-app-text font-semibold">
+              <Ionicons name="folder-open-outline" size={18} color="#dbe4f5" />
+              <Text className="text-white font-semibold">
                 Choose from files
               </Text>
             </Pressable>
             <Pressable
               onPress={handleTakePhoto}
-              className="rounded-[10px] py-3 items-center bg-app-primary"
+              className="flex-1 rounded-[12px] py-3 items-center justify-center bg-[#2b6fff] flex-row gap-2"
             >
-              <Text className="text-app-text font-semibold">Take photo</Text>
+              <Ionicons name="camera-outline" size={18} color="#fff" />
+              <Text className="text-white font-semibold">Take photo</Text>
             </Pressable>
           </View>
         ) : (
@@ -517,32 +559,25 @@ export default function AddReceiptScreen() {
                 setPhotoName(null);
                 setPhotoMimeType(null);
               }}
-              className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
+              className="flex-1 rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
             >
-              <Text className="text-app-text font-semibold">Retake</Text>
+              <Text className="text-white font-semibold">Retake</Text>
             </Pressable>
             <Pressable
               onPress={handleSendToBackend}
               disabled={isUploading}
-              className={`flex-1 rounded-[10px] py-3 items-center ${
-                isUploading ? "bg-app-primary-dim" : "bg-app-primary"
+              className={`flex-1 rounded-[12px] py-3 items-center ${
+                isUploading ? "bg-[#2b6fff]/40" : "bg-[#2b6fff]"
               }`}
             >
               {isUploading ? (
-                <ActivityIndicator color="#f4f7ff" />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text className="text-app-text font-semibold">Send</Text>
+                <Text className="text-white font-semibold">Send</Text>
               )}
             </Pressable>
           </View>
         )}
-
-        <Pressable
-          onPress={() => router.back()}
-          className="rounded-[10px] py-3 items-center bg-app-cancel"
-        >
-          <Text className="text-app-text font-semibold">Close</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );

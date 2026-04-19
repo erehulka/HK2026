@@ -1,5 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AxiosResponse } from "axios";
+import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -9,18 +11,20 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { InviteFriends } from "@/components/invite-friends";
-import type { GroupOut } from "@/api/generated/api";
+import type { GroupOut, UserOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
-import { GroupType } from "@/constants/mock-groups";
+import { InviteFriends } from "@/components/invite-friends";
+import type { Friend } from "@/constants/mock-friends";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 
-const GROUP_TYPES: GroupType[] = ["basic", "trip", "household"];
+const MONGO_OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
 
 type CreateGroupInput = {
   name: string;
   description: string;
+  memberUserIds: string[];
 };
 
 async function createGroupForCurrentUser(
@@ -30,23 +34,32 @@ async function createGroupForCurrentUser(
   const { data: group } = await backendClient.createGroupGroupsPost({
     name: input.name,
     description: input.description,
+    member_user_ids: input.memberUserIds,
   });
   console.log("[createGroup] created", group.id);
-  // Make sure the creator is a member so the new group appears in their list.
-  await backendClient.addUserToGroupGroupsGroupIdUsersUserIdPost(
-    group.id,
-    CURRENT_USER_BACKEND_ID
-  );
-  console.log("[createGroup] member added", CURRENT_USER_BACKEND_ID);
   return group;
 }
 
 export default function CreateGroupScreen() {
   const queryClient = useQueryClient();
 
+  const { data: friends = [] } = useQuery({
+    queryKey: ["users", CURRENT_USER_BACKEND_ID, "friends"],
+    queryFn: () =>
+      backendClient.listUserFriendsUsersUserIdFriendsGet(
+        CURRENT_USER_BACKEND_ID
+      ),
+    select: (response: AxiosResponse<UserOut[]>) =>
+      response.data.map(
+        (user): Friend => ({
+          id: user.id,
+          name: user.display_name,
+        })
+      ),
+  });
+
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [groupType, setGroupType] = useState<GroupType>("basic");
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
 
   const trimmedName = groupName.trim();
@@ -81,9 +94,17 @@ export default function CreateGroupScreen() {
       trimmedName,
     });
     if (!canConfirm) return;
+    const memberUserIds = Array.from(
+      new Set(
+        [CURRENT_USER_BACKEND_ID, ...selectedFriendIds].filter((userId) =>
+          MONGO_OBJECT_ID_REGEX.test(userId)
+        )
+      )
+    );
     createGroupMutation.mutate({
       name: trimmedName,
       description: trimmedDescription,
+      memberUserIds,
     });
   };
 
@@ -93,108 +114,99 @@ export default function CreateGroupScreen() {
       : null;
 
   return (
-    <ScrollView className="flex-1 bg-app-bg">
-      <View className="flex-1 px-5 pt-10 pb-4 gap-5">
-        <Text className="text-3xl font-bold text-app-text">Create Group</Text>
-        <Text className="text-sm text-app-muted">
-          Choose a name and group type.
-        </Text>
-
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Group Name
-          </Text>
-          <TextInput
-            value={groupName}
-            onChangeText={setGroupName}
-            placeholder="Enter group name"
-            placeholderTextColor="#7c90c6"
-            editable={!isSubmitting}
-            className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text"
-          />
+    <SafeAreaView className="flex-1 bg-[#0f1115]" edges={["top"]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        className="flex-1 bg-[#0f1115]"
+        contentContainerClassName="px-5 pt-4 pb-8 gap-5"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="mt-2 flex-row items-center justify-between">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+            disabled={isSubmitting}
+          >
+            <Ionicons name="chevron-back" size={26} color="#2b6fff" />
+          </Pressable>
+          <View className="w-10" />
         </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Description
-          </Text>
-          <TextInput
-            value={groupDescription}
-            onChangeText={setGroupDescription}
-            placeholder="Optional short description"
-            placeholderTextColor="#7c90c6"
-            editable={!isSubmitting}
-            multiline
-            className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text min-h-[60px]"
-          />
+        <View className="gap-1">
+          <Text className="text-4xl font-bold text-white">Create Group</Text>
         </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Group Type
-          </Text>
-          <View className="flex-row gap-2">
-            {GROUP_TYPES.map((type) => {
-              const isActive = type === groupType;
-              return (
-                <Pressable
-                  key={type}
-                  onPress={() => setGroupType(type)}
-                  disabled={isSubmitting}
-                  className={`flex-1 rounded-[10px] border border-app-border-soft py-3 items-center ${
-                    isActive ? "bg-app-border-soft" : "bg-app-card"
-                  }`}
-                >
-                  <Text
-                    className={`font-semibold capitalize ${
-                      isActive ? "text-app-text" : "text-app-muted"
-                    }`}
-                  >
-                    {type}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <Text className="text-lg font-bold text-white">Details</Text>
+
+          <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
+            <Text className="text-base font-semibold text-white">
+              Group name
+            </Text>
+            <TextInput
+              value={groupName}
+              onChangeText={setGroupName}
+              placeholder="Enter group name"
+              placeholderTextColor="#8fa0cb"
+              editable={!isSubmitting}
+              className="rounded-[12px] border border-white/10 bg-[#232831] px-3 py-[11px] text-white"
+            />
+          </View>
+
+          <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
+            <Text className="text-base font-semibold text-white">
+              Description
+            </Text>
+            <TextInput
+              value={groupDescription}
+              onChangeText={setGroupDescription}
+              placeholder="Optional short description"
+              placeholderTextColor="#8fa0cb"
+              editable={!isSubmitting}
+              multiline
+              className="min-h-[64px] rounded-[12px] border border-white/10 bg-[#232831] px-3 py-[11px] text-white"
+            />
           </View>
         </View>
 
         <InviteFriends
           selectedFriendIds={selectedFriendIds}
           onToggleFriend={toggleFriend}
+          friends={friends}
         />
 
         {errorMessage ? (
-          <Text className="text-app-danger">
+          <Text className="rounded-[12px] border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-300">
             Could not create group: {errorMessage}
           </Text>
         ) : null}
 
-        <View className="flex-row gap-3 mt-auto">
+        <View className="mt-1 flex-row gap-3">
           <Pressable
             onPress={() => router.back()}
             disabled={isSubmitting}
-            className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
+            className="flex-1 items-center rounded-[12px] border border-white/10 bg-[#232831] py-3"
           >
-            <Text className="text-app-text font-semibold">Cancel</Text>
+            <Text className="font-semibold text-white">Cancel</Text>
           </Pressable>
           <Pressable
             onPress={handleConfirm}
             disabled={!canConfirm}
-            className={`flex-1 rounded-[10px] py-3 items-center ${
-              canConfirm ? "bg-app-primary" : "bg-app-primary-dim"
+            className={`flex-1 items-center rounded-[12px] py-3 ${
+              canConfirm ? "bg-[#2b6fff]" : "bg-[#2b6fff]/50"
             }`}
           >
             {isSubmitting ? (
               <View className="flex-row items-center gap-2">
-                <ActivityIndicator color="#f4f7ff" />
-                <Text className="text-app-text font-semibold">Creating…</Text>
+                <ActivityIndicator color="#fff" />
+                <Text className="font-semibold text-white">Creating...</Text>
               </View>
             ) : (
-              <Text className="text-app-text font-semibold">Confirm</Text>
+              <Text className="font-semibold text-white">Create group</Text>
             )}
           </Pressable>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

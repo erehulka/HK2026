@@ -22,6 +22,10 @@ class GroupCreate(BaseModel):
         max_length=5000,
         description="Longer text describing the group; may be empty",
     )
+    member_user_ids: list[str] = Field(
+        default_factory=list,
+        description="User ids to add as initial group members",
+    )
 
     @field_validator("name", mode="before")
     @classmethod
@@ -35,6 +39,25 @@ class GroupCreate(BaseModel):
     def strip_description(cls, v: object) -> object:
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator("member_user_ids", mode="before")
+    @classmethod
+    def normalize_member_user_ids(cls, v: object) -> object:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            cleaned: list[str] = []
+            seen: set[str] = set()
+            for item in v:
+                if not isinstance(item, str):
+                    continue
+                normalized = item.strip()
+                if not normalized or normalized in seen:
+                    continue
+                seen.add(normalized)
+                cleaned.append(normalized)
+            return cleaned
         return v
 
 

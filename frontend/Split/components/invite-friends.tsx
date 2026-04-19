@@ -2,9 +2,9 @@ import * as Clipboard from "expo-clipboard";
 import { Alert, Pressable, Text, View } from "react-native";
 
 import {
-  FRIEND_INVITE_LINK,
-  Friend,
-  MOCK_FRIENDS,
+    FRIEND_INVITE_LINK,
+    Friend,
+    MOCK_FRIENDS,
 } from "@/constants/mock-friends";
 
 type InviteFriendsProps = {
@@ -26,23 +26,19 @@ export function InviteFriends({
   };
 
   return (
-    <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
+    <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
       <View className="flex-row items-center justify-between">
-        <Text className="text-base font-semibold text-app-text">
-          Invite Friends
-        </Text>
+        <Text className="text-lg font-bold text-white">Invite friends</Text>
         <Pressable
           onPress={handleCopyInviteLink}
-          className="px-[10px] py-[6px] rounded-lg border border-app-border"
+          className="rounded-[10px] border border-sky-400/40 bg-sky-500/10 px-3 py-2"
         >
-          <Text className="text-[13px] font-semibold text-app-muted">
-            Copy invite link
-          </Text>
+          <Text className="text-[13px] font-semibold text-sky-300">Copy invite link</Text>
         </Pressable>
       </View>
 
       {friends.length === 0 ? (
-        <Text className="italic text-app-muted">You have no friends yet.</Text>
+        <Text className="italic text-white/45">You have no friends yet.</Text>
       ) : (
         friends.map((friend) => {
           const isSelected = selectedFriendIds.includes(friend.id);
@@ -50,20 +46,22 @@ export function InviteFriends({
             <Pressable
               key={friend.id}
               onPress={() => onToggleFriend(friend.id)}
-              className={`flex-row items-center justify-between border border-app-border-soft rounded-[10px] py-[10px] px-3 ${
-                isSelected ? "bg-app-border-soft" : "bg-app-card"
+              className={`flex-row items-center justify-between rounded-[14px] border px-3 py-[11px] ${
+                isSelected
+                  ? "border-sky-400/40 bg-sky-500/10"
+                  : "border-white/10 bg-[#232831]"
               }`}
             >
-              <Text className="text-[15px] text-app-text">{friend.name}</Text>
+              <Text className="text-[15px] text-white">{friend.name}</Text>
               <View
-                className={`w-[22px] h-[22px] rounded-md border items-center justify-center ${
+                className={`h-[24px] w-[24px] items-center justify-center rounded-md border ${
                   isSelected
-                    ? "bg-white border-white"
-                    : "bg-app-card border-app-input-border"
+                    ? "border-sky-400 bg-sky-400"
+                    : "border-sky-400/60 bg-transparent"
                 }`}
               >
                 {isSelected && (
-                  <Text className="font-bold text-app-border-soft">✓</Text>
+                  <Text className="font-bold text-[#0f1115]">✓</Text>
                 )}
               </View>
             </Pressable>

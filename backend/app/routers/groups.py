@@ -27,6 +27,16 @@ router = APIRouter(prefix="/groups", tags=["groups"])
 )
 def create_group(body: GroupCreate, db: Database = Depends(get_db)) -> GroupOut:
     created_at = datetime.now(timezone.utc)
+
+    member_object_ids = [
+        parse_object_id(user_id, field="member_user_ids")
+        for user_id in body.member_user_ids
+    ]
+    if member_object_ids:
+        existing_count = db.users.count_documents({"_id": {"$in": member_object_ids}})
+        if existing_count != len(member_object_ids):
+            raise HTTPException(status_code=404, detail="One or more users not found")
+
     doc = {
         "name": body.name,
         "description": body.description,
@@ -34,6 +44,24 @@ def create_group(body: GroupCreate, db: Database = Depends(get_db)) -> GroupOut:
         "expenseIds": [],
     }
     result = db.groups.insert_one(doc)
+
+    if member_object_ids:
+        membership_docs = [
+            {
+                "group_id": result.inserted_id,
+                "user_id": user_id,
+                "created_at": created_at,
+            }
+            for user_id in member_object_ids
+        ]
+        try:
+            db.group_memberships.insert_many(membership_docs, ordered=False)
+        except DuplicateKeyError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Duplicate member ids provided",
+            ) from exc
+
     return GroupOut(
         id=str(result.inserted_id),
         name=body.name,
