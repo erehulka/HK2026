@@ -109,7 +109,6 @@ class ReceiptData:
                 f"language tag '{lang}'" if lang != "und" else "an unidentified language"
             )
             context = (
-                f'Merchant: "{self.merchant_name}". '
                 f'The following labels are in {lang_desc}.'
             )
 
