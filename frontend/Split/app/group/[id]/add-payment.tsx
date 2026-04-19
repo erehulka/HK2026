@@ -89,6 +89,7 @@ export default function AddPaymentScreen() {
     enabled: !!groupId && !!paymentId,
   });
   const isEditing = !!paymentId;
+  const [isPreviewMode, setIsPreviewMode] = useState(isEditing);
 
   const members = useMemo<Member[]>(
     () =>
@@ -158,11 +159,20 @@ export default function AddPaymentScreen() {
     (!isMultiItemExpense || areDraftItemsValid) &&
     !membersQuery.isPending &&
     (!isEditing || !existingExpenseQuery.isPending);
+  const isViewMode = isEditing && isPreviewMode;
 
   const goToGroupView = () => router.replace(`/group/${groupId}`);
   const handleBackNavigation = () => {
     goToGroupView();
   };
+  const handleEnableEditMode = () => {
+    setIsPreviewMode(false);
+    setOpenDropdown(null);
+  };
+
+  useEffect(() => {
+    setIsPreviewMode(isEditing);
+  }, [isEditing]);
 
   useEffect(() => {
     const memberIds = members.map((member) => member.id);
@@ -466,14 +476,31 @@ export default function AddPaymentScreen() {
           >
             <Ionicons name="chevron-back" size={26} color="#2b6fff" />
           </Pressable>
-          <View className="h-10 w-10" />
+          {isViewMode ? (
+            <Pressable
+              onPress={handleEnableEditMode}
+              className="h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#232831]"
+            >
+              <Ionicons name="pencil-outline" size={17} color="#dbe4f5" />
+            </Pressable>
+          ) : (
+            <View className="h-10 w-10" />
+          )}
         </View>
 
         <View className="gap-1">
           <Text className="text-4xl font-bold text-white">
-            {isEditing ? "Edit payment" : "Add payment"}
+            {isViewMode
+              ? "Payment details"
+              : isEditing
+              ? "Edit payment"
+              : "Add payment"}
           </Text>
-          {isEditing ? (
+          {isViewMode ? (
+            <Text className="text-sm text-white/45">
+              Read-only preview. Tap the pencil to edit.
+            </Text>
+          ) : isEditing ? (
             <Text className="text-sm text-white/45">
               Editing updates description, payer, and participants.
             </Text>
@@ -491,7 +518,7 @@ export default function AddPaymentScreen() {
                 onChangeText={setName}
                 placeholder="e.g. Groceries"
                 placeholderTextColor="#9aa1ad"
-                editable={!savePaymentMutation.isPending}
+                editable={!isViewMode && !savePaymentMutation.isPending}
                 className="rounded-[10px] border border-white/10 bg-[#232831] px-3 py-[10px] text-white"
               />
             </View>
@@ -506,6 +533,7 @@ export default function AddPaymentScreen() {
                 placeholderTextColor="#9aa1ad"
                 keyboardType="decimal-pad"
                 editable={
+                  !isViewMode &&
                   !savePaymentMutation.isPending &&
                   (!isEditing || isSingleItemExpense) &&
                   !isReceiptMultiItemCreate
@@ -532,8 +560,11 @@ export default function AddPaymentScreen() {
         <View className="gap-3 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
           <Text className="text-lg font-bold text-white">Split setup</Text>
           <Pressable
-            onPress={() => toggleDropdown("paidBy")}
-            disabled={savePaymentMutation.isPending}
+            onPress={() => {
+              if (isViewMode) return;
+              toggleDropdown("paidBy");
+            }}
+            disabled={savePaymentMutation.isPending || isViewMode}
             className="flex-row items-center justify-between rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
           >
             <View className="flex-1">
@@ -549,7 +580,7 @@ export default function AddPaymentScreen() {
             </Text>
           </Pressable>
 
-          {openDropdown === "paidBy" && (
+          {openDropdown === "paidBy" && !isViewMode && (
             <View className="gap-2">
               {members.map((member) => {
                 const isActive = member.id === paidById;
@@ -584,8 +615,11 @@ export default function AddPaymentScreen() {
           )}
 
           <Pressable
-            onPress={() => toggleDropdown("splitBetween")}
-            disabled={savePaymentMutation.isPending}
+            onPress={() => {
+              if (isViewMode) return;
+              toggleDropdown("splitBetween");
+            }}
+            disabled={savePaymentMutation.isPending || isViewMode}
             className="flex-row items-center justify-between rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
           >
             <View className="flex-1 pr-2">
@@ -601,7 +635,7 @@ export default function AddPaymentScreen() {
             </Text>
           </Pressable>
 
-          {openDropdown === "splitBetween" && (
+          {openDropdown === "splitBetween" && !isViewMode && (
             <View className="gap-2">
               {members.map((member) => {
                 const isSelected = owesIds.includes(member.id);
@@ -636,8 +670,8 @@ export default function AddPaymentScreen() {
         </View>
 
         {isMultiItemExpense || isReceiptMultiItemCreate ? (
-          <View className="gap-3 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-            <View className="flex-row items-center justify-between">
+          <>
+            <View className="flex-row items-center justify-between px-1">
               <Text className="text-lg font-bold text-white">Items</Text>
               <Text className="text-sm text-sky-400">
                 {expenseItemsDraft.length} total
@@ -651,15 +685,15 @@ export default function AddPaymentScreen() {
               <ExpenseItemsList
                 items={multiItemsListItems}
                 showSelection={false}
-                editable
+                editable={!isViewMode}
                 onNameChange={handleItemNameChange}
                 onPriceInputChange={handleItemPriceInputChange}
                 onPriceBlur={handleItemPriceBlur}
-                enableSwipeDelete
+                enableSwipeDelete={!isViewMode}
                 onDelete={handleDeleteItem}
               />
             </ScrollView>
-          </View>
+          </>
         ) : null}
 
         <View className="gap-2 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
@@ -691,45 +725,47 @@ export default function AddPaymentScreen() {
           </Text>
         ) : null}
 
-        <View className="mt-1 flex-row gap-3">
-          <Pressable
-            onPress={handleBackNavigation}
-            disabled={
-              savePaymentMutation.isPending || deleteExpenseMutation.isPending
-            }
-            className="flex-1 items-center rounded-[12px] border border-white/10 bg-[#232831] py-3"
-          >
-            <Text className="font-semibold text-white">Cancel</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleSave}
-            disabled={
-              !canSave ||
-              savePaymentMutation.isPending ||
-              deleteExpenseMutation.isPending
-            }
-            className={`flex-1 items-center rounded-[12px] py-3 ${
-              canSave && !savePaymentMutation.isPending
-                ? "bg-[#2b6fff]"
-                : "bg-[#2b6fff]/40"
-            }`}
-          >
-            {savePaymentMutation.isPending ? (
-              <View className="flex-row items-center gap-2">
-                <ActivityIndicator color="#fff" />
+        {!isViewMode ? (
+          <View className="mt-1 flex-row gap-3">
+            <Pressable
+              onPress={handleBackNavigation}
+              disabled={
+                savePaymentMutation.isPending || deleteExpenseMutation.isPending
+              }
+              className="flex-1 items-center rounded-[12px] border border-white/10 bg-[#232831] py-3"
+            >
+              <Text className="font-semibold text-white">Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleSave}
+              disabled={
+                !canSave ||
+                savePaymentMutation.isPending ||
+                deleteExpenseMutation.isPending
+              }
+              className={`flex-1 items-center rounded-[12px] py-3 ${
+                canSave && !savePaymentMutation.isPending
+                  ? "bg-[#2b6fff]"
+                  : "bg-[#2b6fff]/40"
+              }`}
+            >
+              {savePaymentMutation.isPending ? (
+                <View className="flex-row items-center gap-2">
+                  <ActivityIndicator color="#fff" />
+                  <Text className="font-semibold text-white">
+                    {isEditing ? "Updating..." : "Saving..."}
+                  </Text>
+                </View>
+              ) : (
                 <Text className="font-semibold text-white">
-                  {isEditing ? "Updating..." : "Saving..."}
+                  {isEditing ? "Confirm" : "Save"}
                 </Text>
-              </View>
-            ) : (
-              <Text className="font-semibold text-white">
-                {isEditing ? "Confirm" : "Save"}
-              </Text>
-            )}
-          </Pressable>
-        </View>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
 
-        {isEditing ? (
+        {isEditing && !isViewMode ? (
           <Pressable
             onPress={() => deleteExpenseMutation.mutate()}
             disabled={
