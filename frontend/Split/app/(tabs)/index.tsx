@@ -110,27 +110,23 @@ export default function HomeScreen() {
               <Pressable
                 key={group.id}
                 onPress={() => router.push(`/group/${group.id}`)}
-                className="flex-1 rounded-[18px] border border-white/8 bg-[#232831] p-4"
+                className="flex-1 rounded-[14px] border border-white/5 bg-[#2a3038] p-4"
               >
                 <Text className="text-base font-semibold text-white">{group.name}</Text>
-                <Text className="mt-4 text-2xl font-bold text-white">
-                  {group.balance >= 0 ? "+" : "-"} {formatBalance(group.balance)}
+                <Text
+                  className={`mt-4 text-2xl font-bold ${
+                    group.balance > 0
+                      ? "text-emerald-400"
+                      : group.balance < 0
+                      ? "text-rose-400"
+                      : "text-white"
+                  }`}
+                >
+                  {group.balance < 0 ? "-" : ""} {formatBalance(group.balance)}
                 </Text>
                 <Text className="mt-1 text-xs text-white/45 capitalize">
                   {group.type}
                 </Text>
-                <View className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/8">
-                  <View
-                    className={`h-full rounded-full ${
-                      group.balance > 0
-                        ? "bg-emerald-400"
-                        : group.balance < 0
-                        ? "bg-rose-400"
-                        : "bg-sky-400"
-                    }`}
-                    style={{ width: `${Math.min(100, Math.abs(group.balance) / 2)}%` }}
-                  />
-                </View>
               </Pressable>
             ))}
           </View>
@@ -141,7 +137,7 @@ export default function HomeScreen() {
             <Text className="text-2xl font-bold text-white">Spending plan</Text>
             <Text className="text-sm text-sky-400">See detail</Text>
           </View>
-          <View className="rounded-[18px] border border-white/8 bg-[#232831] p-4">
+          <View className="rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
             <Text className="text-sm text-white/45">Current plan overview</Text>
             <Text className="mt-3 text-3xl font-bold text-emerald-400">
               + {formatBalance(1312.44)}
@@ -150,37 +146,6 @@ export default function HomeScreen() {
               Estimated balance remaining until the end of the period (13 days remaining)
             </Text>
           </View>
-        </View>
-
-        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-2xl font-bold text-white">Spending Plan</Text>
-          </View>
-
-          {groups.length === 0 ? (
-            <Text className="italic text-white/50">
-              No groups exist at the moment.
-            </Text>
-          ) : (
-            groups.map((group) => (
-              <Pressable
-                key={group.id}
-                onPress={() => router.push(`/group/${group.id}`)}
-                className="flex-row items-center justify-between rounded-[18px] border border-white/8 bg-[#232831] px-4 py-3"
-              >
-                <View className="gap-1">
-                  <Text className="text-base font-semibold text-white">{group.name}</Text>
-                  <Text className="text-xs text-white/45 capitalize">{group.type}</Text>
-                </View>
-                <View className="items-end gap-1">
-                  <Text className="text-base font-semibold text-white">
-                    {group.balance >= 0 ? "+" : "-"} {formatBalance(group.balance)}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-                </View>
-              </Pressable>
-            ))
-          )}
         </View>
       </ScrollView>
     </SafeAreaView>
