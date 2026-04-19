@@ -19,16 +19,13 @@ print("\n── Items with detected languages:")
 for i, item in enumerate(d.items):
     print(f"  [{i}] ({item.language}) {item.name!r} ({item.unit_price}) x {item.quantity} ---> {item.total_price}")
 
-print("\n── Interpreting labels …")
-interpreted = result.interpret_labels()
-for ii in interpreted:
-    flag = "" if ii.interpreted else "  ⚑ unrecognised"
-    print(f"  [{ii.index}] ({ii.language}) {ii.original_name!r:30s} → {ii.interpreted_name!r}{flag}")
-
-print("\n── Translating to English …")
-translated = result.translate("English", interpreted=interpreted)
+print("\n── Enhanced English labels …")
+_interpreted, translated = receipt_processor.interpret_and_translate_labels(
+    receipt_processor.snapshot_from_receipt_data(d),
+)
 for ti in translated:
-    print(f"  [{ti.index}] [{ti.source_language}] {ti.original_name!r:30s} → {ti.translated_name!r}")
+    raw = d.items[ti.index].name
+    print(f"  [{ti.index}] {raw!r:30s} → {ti.enhanced_name!r}")
 
 
 print("------------- Testing sublist summarisation --------------")

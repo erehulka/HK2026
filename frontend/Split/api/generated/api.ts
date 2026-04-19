@@ -218,6 +218,55 @@ export interface ItemUpdate {
 export interface LocationInner {
 }
 /**
+ * Enhanced English labels for each input line (same order as request `items`).
+ */
+export interface ReceiptEnhancedLabelsOut {
+    'lines': Array<ReceiptEnhancedLineOut>;
+}
+/**
+ * One receipt line: raw label from the payload and the improved English label.
+ */
+export interface ReceiptEnhancedLineOut {
+    /**
+     * Index matching `items` in the request body
+     */
+    'index': number;
+    /**
+     * Label as on the receipt (unchanged from input)
+     */
+    'original_name': string;
+    /**
+     * English label after abbreviation expansion and translation
+     */
+    'enhanced_name': string;
+}
+/**
+ * Minimal payload for label enhancement: receipt context plus line names and languages. No totals, dates, or OCR dump — those are not used by the model calls.
+ */
+export interface ReceiptInterpretTranslateIn {
+    /**
+     * Short receipt category / context (passed into the interpret prompt)
+     */
+    'summary_label': string;
+    /**
+     * Lines to interpret and translate; order is preserved in the response
+     */
+    'items': Array<ReceiptInterpretTranslateLineIn>;
+}
+/**
+ * One line: only fields read by the interpret + translate pipeline.
+ */
+export interface ReceiptInterpretTranslateLineIn {
+    /**
+     * Item label as read from the receipt
+     */
+    'name': string;
+    /**
+     * BCP-47 tag for this label (used for grouping and translation hints)
+     */
+    'language'?: string;
+}
+/**
  * One line on a parsed receipt.
  */
 export interface ReceiptLineItemOut {
@@ -1771,6 +1820,41 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
 export const ReceiptsApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
+         * Expands abbreviated labels and translates them to English. Response is only the enhanced lines (`original_name` from the receipt, `enhanced_name` in English). Send `summary_label` and `items` with `name` and `language` only (map from a process result if needed: `summary_label` plus each line’s label and language tag).
+         * @summary Enhance receipt line labels to English (stateless)
+         * @param {ReceiptInterpretTranslateIn} receiptInterpretTranslateIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        interpretTranslateReceiptReceiptsInterpretTranslatePost: async (receiptInterpretTranslateIn: ReceiptInterpretTranslateIn, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'receiptInterpretTranslateIn' is not null or undefined
+            assertParamExists('interpretTranslateReceiptReceiptsInterpretTranslatePost', 'receiptInterpretTranslateIn', receiptInterpretTranslateIn)
+            const localVarPath = `/receipts/interpret-translate`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(receiptInterpretTranslateIn, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Upload a receipt photo and get structured JSON
          * @param {File} file Receipt image (JPEG or PNG)
@@ -1820,6 +1904,19 @@ export const ReceiptsApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = ReceiptsApiAxiosParamCreator(configuration)
     return {
         /**
+         * Expands abbreviated labels and translates them to English. Response is only the enhanced lines (`original_name` from the receipt, `enhanced_name` in English). Send `summary_label` and `items` with `name` and `language` only (map from a process result if needed: `summary_label` plus each line’s label and language tag).
+         * @summary Enhance receipt line labels to English (stateless)
+         * @param {ReceiptInterpretTranslateIn} receiptInterpretTranslateIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn: ReceiptInterpretTranslateIn, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ReceiptEnhancedLabelsOut>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ReceiptsApi.interpretTranslateReceiptReceiptsInterpretTranslatePost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Upload a receipt photo and get structured JSON
          * @param {File} file Receipt image (JPEG or PNG)
@@ -1842,6 +1939,16 @@ export const ReceiptsApiFactory = function (configuration?: Configuration, baseP
     const localVarFp = ReceiptsApiFp(configuration)
     return {
         /**
+         * Expands abbreviated labels and translates them to English. Response is only the enhanced lines (`original_name` from the receipt, `enhanced_name` in English). Send `summary_label` and `items` with `name` and `language` only (map from a process result if needed: `summary_label` plus each line’s label and language tag).
+         * @summary Enhance receipt line labels to English (stateless)
+         * @param {ReceiptInterpretTranslateIn} receiptInterpretTranslateIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn: ReceiptInterpretTranslateIn, options?: RawAxiosRequestConfig): AxiosPromise<ReceiptEnhancedLabelsOut> {
+            return localVarFp.interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Upload a receipt photo and get structured JSON
          * @param {File} file Receipt image (JPEG or PNG)
@@ -1859,6 +1966,15 @@ export const ReceiptsApiFactory = function (configuration?: Configuration, baseP
  */
 export interface ReceiptsApiInterface {
     /**
+     * Expands abbreviated labels and translates them to English. Response is only the enhanced lines (`original_name` from the receipt, `enhanced_name` in English). Send `summary_label` and `items` with `name` and `language` only (map from a process result if needed: `summary_label` plus each line’s label and language tag).
+     * @summary Enhance receipt line labels to English (stateless)
+     * @param {ReceiptInterpretTranslateIn} receiptInterpretTranslateIn 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn: ReceiptInterpretTranslateIn, options?: RawAxiosRequestConfig): AxiosPromise<ReceiptEnhancedLabelsOut>;
+
+    /**
      * 
      * @summary Upload a receipt photo and get structured JSON
      * @param {File} file Receipt image (JPEG or PNG)
@@ -1873,6 +1989,17 @@ export interface ReceiptsApiInterface {
  * ReceiptsApi - object-oriented interface
  */
 export class ReceiptsApi extends BaseAPI implements ReceiptsApiInterface {
+    /**
+     * Expands abbreviated labels and translates them to English. Response is only the enhanced lines (`original_name` from the receipt, `enhanced_name` in English). Send `summary_label` and `items` with `name` and `language` only (map from a process result if needed: `summary_label` plus each line’s label and language tag).
+     * @summary Enhance receipt line labels to English (stateless)
+     * @param {ReceiptInterpretTranslateIn} receiptInterpretTranslateIn 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn: ReceiptInterpretTranslateIn, options?: RawAxiosRequestConfig) {
+        return ReceiptsApiFp(this.configuration).interpretTranslateReceiptReceiptsInterpretTranslatePost(receiptInterpretTranslateIn, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * 
      * @summary Upload a receipt photo and get structured JSON

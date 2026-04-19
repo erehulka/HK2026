@@ -39,3 +39,44 @@ class ReceiptProcessedOut(BaseModel):
     languages: list[str] = Field(
         description="Distinct BCP-47 tags from line items (excludes und)",
     )
+
+
+class ReceiptInterpretTranslateLineIn(BaseModel):
+    """One line: only fields read by the interpret + translate pipeline."""
+
+    name: str = Field(description="Item label as read from the receipt")
+    language: str = Field(
+        default="und",
+        description="BCP-47 tag for this label (used for grouping and translation hints)",
+    )
+
+
+class ReceiptInterpretTranslateIn(BaseModel):
+    """
+    Minimal payload for label enhancement: receipt context plus line names and languages.
+    No totals, dates, or OCR dump — those are not used by the model calls.
+    """
+
+    summary_label: str = Field(
+        description="Short receipt category / context (passed into the interpret prompt)",
+    )
+    items: list[ReceiptInterpretTranslateLineIn] = Field(
+        min_length=1,
+        description="Lines to interpret and translate; order is preserved in the response",
+    )
+
+
+class ReceiptEnhancedLineOut(BaseModel):
+    """One receipt line: raw label from the payload and the improved English label."""
+
+    index: int = Field(description="Index matching `items` in the request body")
+    original_name: str = Field(description="Label as on the receipt (unchanged from input)")
+    enhanced_name: str = Field(
+        description="English label after abbreviation expansion and translation",
+    )
+
+
+class ReceiptEnhancedLabelsOut(BaseModel):
+    """Enhanced English labels for each input line (same order as request `items`)."""
+
+    lines: list[ReceiptEnhancedLineOut]
