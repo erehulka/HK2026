@@ -11,7 +11,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from app.processing import receipt_processor
-from app.schemas.receipt import ReceiptProcessedOut
+from app.schemas.receipt import (
+    ReceiptProcessedOut,
+    TranslateLabelsIn,
+    TranslateLabelsOut,
+    TranslatedLabelOut,
+)
 
 
 def _pick_image_suffix(filename: str | None, content_type: str | None) -> str:
@@ -67,3 +72,50 @@ async def process_receipt_upload(
         )
 
     return ReceiptProcessedOut.model_validate(result.data.to_dict())
+
+
+@router.post(
+    "/translate-labels",
+    summary="Translate receipt item labels to a target language",
+    response_model=TranslateLabelsOut,
+)
+async def translate_receipt_labels(body: TranslateLabelsIn) -> TranslateLabelsOut:
+    line_items = [
+        receipt_processor.LineItem(
+            name=line.name,
+            quantity=0.0,
+            unit_price=0.0,
+            total_price=0.0,
+            language=line.language,
+        )
+        for line in body.items
+    ]
+
+    try:
+        translated = await run_in_threadpool(
+            receipt_processor.translate_receipt_item_labels,
+            line_items,
+            body.target_language,
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        ) from e
+
+    return TranslateLabelsOut(
+        labels=[
+            TranslatedLabelOut(
+                index=ti.index,
+                original_name=ti.original_name,
+                translated_name=ti.translated_name,
+                source_language=ti.source_language,
+            )
+            for ti in translated
+        ],
+    )
