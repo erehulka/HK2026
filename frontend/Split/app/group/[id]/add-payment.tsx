@@ -726,15 +726,6 @@ export default function AddPaymentScreen() {
           </>
         ) : null}
 
-        <View className="gap-2 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-          <Text className="text-base font-semibold text-white">
-            Split method
-          </Text>
-          <Text className="text-[13px] text-white/45">
-            Quick payment currently creates an equal split for selected members.
-          </Text>
-        </View>
-
         {membersQuery.isPending ? (
           <View className="flex-row items-center gap-2">
             <ActivityIndicator color="#38bdf8" />
