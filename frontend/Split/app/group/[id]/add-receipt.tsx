@@ -316,8 +316,8 @@ export default function AddReceiptScreen() {
 
     if (expenseItemsPayload.length === 0) return;
 
-    router.push({
-      pathname: "/group/[id]/add-payment",
+    const destination = {
+      pathname: "/group/[id]/add-payment" as const,
       params: {
         id: groupId,
         prefillName,
@@ -327,7 +327,8 @@ export default function AddReceiptScreen() {
         sourceReceiptItemsPayload: JSON.stringify(expenseItemsPayload),
         returnToGroupIfReceiptDone: returnToGroupIfDone ? "1" : "0",
       },
-    });
+    };
+    router.replace(destination);
   };
 
   const handleAddSelectedAsExpense = () => {
