@@ -1,32 +1,61 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GroupOut } from "@/api/generated/api";
+import { GroupOut, SimplifiedGroupDebtsOut } from "@/api/generated/api";
 import { backendClient } from "@/api/generated/client";
 import { CURRENT_USER_BACKEND_ID } from "@/constants/mock-user";
 import { AxiosResponse } from "axios";
 
 const userGroupsQueryKey = (userId: string) =>
   ["users", userId, "groups"] as const;
+const groupDebtsQueryKey = (groupId: string) =>
+  ["groups", groupId, "debts", "simplified"] as const;
+
+function computeUserNetBalanceEur(
+  debts: SimplifiedGroupDebtsOut,
+  userId: string
+): number | null {
+  const idx = debts.member_ids.indexOf(userId);
+  if (idx === -1) return null;
+
+  let owedByUserCents = 0;
+  let owedToUserCents = 0;
+  for (let j = 0; j < debts.member_ids.length; j += 1) {
+    owedByUserCents += debts.matrix[idx]?.[j] ?? 0;
+    owedToUserCents += debts.matrix[j]?.[idx] ?? 0;
+  }
+
+  return (owedToUserCents - owedByUserCents) / 100;
+}
 
 export default function HomeScreen() {
   const {
     data: groups,
     isPending,
     isError,
-    error,
     refetch,
-    isRefetching,
   } = useQuery({
     queryKey: userGroupsQueryKey(CURRENT_USER_BACKEND_ID),
     queryFn: () =>
       backendClient.listUserGroupsUsersUserIdGroupsGet(CURRENT_USER_BACKEND_ID),
     select: (response: AxiosResponse<GroupOut[]>) => response.data,
+  });
+  const previewGroups = groups?.slice(0, 2) ?? [];
+  const previewBalanceQueries = useQueries({
+    queries: previewGroups.map((group) => ({
+      queryKey: groupDebtsQueryKey(group.id),
+      queryFn: () =>
+        backendClient.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
+          group.id
+        ),
+      select: (response: AxiosResponse<SimplifiedGroupDebtsOut>) => response.data,
+      enabled: !!group.id,
+    })),
   });
 
   const accountName = "Moj bezny ucet";
@@ -134,32 +163,46 @@ export default function HomeScreen() {
           <View className="flex-row gap-3">
             {!isPending &&
               !isError &&
-              groups?.slice(0, 2).map((group) => (
-                <Pressable
-                  key={group.id}
-                  onPress={() => router.push(`/group/${group.id}`)}
-                  className="flex-1 rounded-[14px] border border-white/5 bg-[#2a3038] p-4"
-                >
-                  <Text className="text-base font-semibold text-white">
-                    {group.name}
-                  </Text>
-                  <Text
-                    className={`mt-4 text-2xl font-bold ${
-                      group.balance > 0
-                        ? "text-emerald-400"
-                        : group.balance < 0
-                        ? "text-rose-400"
-                        : "text-white"
-                    }`}
+              previewGroups.map((group, index) => {
+                const balanceQuery = previewBalanceQueries[index];
+                const balanceEur = balanceQuery?.data
+                  ? computeUserNetBalanceEur(
+                      balanceQuery.data,
+                      CURRENT_USER_BACKEND_ID
+                    )
+                  : null;
+                const balanceColor =
+                  balanceEur === null || balanceEur === 0
+                    ? "text-white"
+                    : balanceEur > 0
+                    ? "text-emerald-400"
+                    : "text-rose-400";
+                const balanceSign = balanceEur && balanceEur > 0 ? "+" : "";
+
+                return (
+                  <Pressable
+                    key={group.id}
+                    onPress={() => router.push(`/group/${group.id}`)}
+                    className="flex-1 rounded-[14px] border border-white/5 bg-[#2a3038] p-4"
                   >
-                    {group.balance < 0 ? "-" : ""}{" "}
-                    {formatBalance(group.balance)}
-                  </Text>
-                  <Text className="mt-1 text-xs text-white/45 capitalize">
-                    {group.type}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text className="text-base font-semibold text-white">
+                      {group.name}
+                    </Text>
+                    {balanceQuery?.isPending ? (
+                      <Text className="mt-4 text-base text-white/45">
+                        Loading balance...
+                      </Text>
+                    ) : (
+                      <Text className={`mt-4 text-2xl font-bold ${balanceColor}`}>
+                        {balanceEur === null ? "—" : `${balanceSign}${formatBalance(balanceEur)}`}
+                      </Text>
+                    )}
+                    <Text className="mt-1 text-xs text-white/45">
+                      {group.description || "Group"}
+                    </Text>
+                  </Pressable>
+                );
+              })}
           </View>
         </View>
 
