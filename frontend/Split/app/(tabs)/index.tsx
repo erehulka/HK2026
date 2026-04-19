@@ -46,8 +46,8 @@ export default function HomeScreen() {
     select: (response: AxiosResponse<GroupOut[]>) => response.data,
   });
   const previewGroups = groups?.slice(0, 2) ?? [];
-  const previewBalanceQueries = useQueries({
-    queries: previewGroups.map((group) => ({
+  const groupBalanceQueries = useQueries({
+    queries: (groups ?? []).map((group) => ({
       queryKey: groupDebtsQueryKey(group.id),
       queryFn: () =>
         backendClient.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
@@ -57,6 +57,31 @@ export default function HomeScreen() {
       enabled: !!group.id,
     })),
   });
+
+  const groupBalanceById = new Map(
+    (groups ?? []).map((group, index) => [group.id, groupBalanceQueries[index]])
+  );
+
+  const overallBalanceEur = (groups ?? []).reduce((total, group) => {
+    const query = groupBalanceById.get(group.id);
+    if (!query?.data) return total;
+    const net = computeUserNetBalanceEur(query.data, CURRENT_USER_BACKEND_ID);
+    return total + (net ?? 0);
+  }, 0);
+
+  const overallBalanceLabel =
+    overallBalanceEur > 0
+      ? "Overall you are owed:"
+      : overallBalanceEur < 0
+      ? "Overall you owe:"
+      : "Overall settled:";
+
+  const overallBalanceColor =
+    overallBalanceEur > 0
+      ? "text-emerald-400"
+      : overallBalanceEur < 0
+      ? "text-rose-400"
+      : "text-white/55";
 
   const accountName = "Moj bezny ucet";
   const accountIban = "SK86 1100 0000 0026 1100 0000";
@@ -160,11 +185,24 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
+          {isPending ? (
+            <Text className="text-sm text-white/45">Loading group summary...</Text>
+          ) : isError ? (
+            <Text className="text-sm text-rose-400">Couldn’t load group summary</Text>
+          ) : (
+            <View className="flex-row items-center justify-between gap-3">
+              <Text className="text-sm text-white/55">{overallBalanceLabel}</Text>
+              <Text className={`text-lg font-semibold ${overallBalanceColor}`}>
+                {formatBalance(overallBalanceEur)}
+              </Text>
+            </View>
+          )}
+
           <View className="flex-row gap-3">
             {!isPending &&
               !isError &&
               previewGroups.map((group, index) => {
-                const balanceQuery = previewBalanceQueries[index];
+                const balanceQuery = groupBalanceById.get(group.id);
                 const balanceEur = balanceQuery?.data
                   ? computeUserNetBalanceEur(
                       balanceQuery.data,

@@ -1,14 +1,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { InviteFriends } from "@/components/invite-friends";
 import type { GroupOut } from "@/api/generated/api";
@@ -93,47 +95,61 @@ export default function CreateGroupScreen() {
       : null;
 
   return (
-    <ScrollView className="flex-1 bg-app-bg">
-      <View className="flex-1 px-5 pt-10 pb-4 gap-5">
-        <Text className="text-3xl font-bold text-app-text">Create Group</Text>
-        <Text className="text-sm text-app-muted">
-          Choose a name and group type.
-        </Text>
-
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Group Name
-          </Text>
-          <TextInput
-            value={groupName}
-            onChangeText={setGroupName}
-            placeholder="Enter group name"
-            placeholderTextColor="#7c90c6"
-            editable={!isSubmitting}
-            className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text"
-          />
+    <SafeAreaView className="flex-1 bg-app-bg" edges={["top"]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        className="flex-1 bg-[#0f1115]"
+        contentContainerClassName="px-5 pt-4 pb-8 gap-5"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="mt-2 flex-row items-center justify-between">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+            disabled={isSubmitting}
+          >
+            <Ionicons name="chevron-back" size={26} color="#2b6fff" />
+          </Pressable>
+          <View className="w-10" />
         </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Description
-          </Text>
-          <TextInput
-            value={groupDescription}
-            onChangeText={setGroupDescription}
-            placeholder="Optional short description"
-            placeholderTextColor="#7c90c6"
-            editable={!isSubmitting}
-            multiline
-            className="bg-app-input border border-app-input-border rounded-[10px] px-3 py-[10px] text-app-text min-h-[60px]"
-          />
+        <View className="gap-1">
+          <Text className="text-4xl font-bold text-white">Create Group</Text>
+          <Text className="text-sm text-white/45">Choose a name and group type.</Text>
         </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Group Type
-          </Text>
-          <View className="flex-row gap-2">
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <Text className="text-lg font-bold text-white">Details</Text>
+
+          <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
+            <Text className="text-base font-semibold text-white">Group name</Text>
+            <TextInput
+              value={groupName}
+              onChangeText={setGroupName}
+              placeholder="Enter group name"
+              placeholderTextColor="#8fa0cb"
+              editable={!isSubmitting}
+              className="rounded-[12px] border border-white/10 bg-[#232831] px-3 py-[11px] text-white"
+            />
+          </View>
+
+          <View className="gap-2 rounded-[14px] border border-white/5 bg-[#2a3038] p-4">
+            <Text className="text-base font-semibold text-white">Description</Text>
+            <TextInput
+              value={groupDescription}
+              onChangeText={setGroupDescription}
+              placeholder="Optional short description"
+              placeholderTextColor="#8fa0cb"
+              editable={!isSubmitting}
+              multiline
+              className="min-h-[64px] rounded-[12px] border border-white/10 bg-[#232831] px-3 py-[11px] text-white"
+            />
+          </View>
+        </View>
+
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <Text className="text-lg font-bold text-white">Group type</Text>
+          <View className="flex-row gap-3">
             {GROUP_TYPES.map((type) => {
               const isActive = type === groupType;
               return (
@@ -141,13 +157,15 @@ export default function CreateGroupScreen() {
                   key={type}
                   onPress={() => setGroupType(type)}
                   disabled={isSubmitting}
-                  className={`flex-1 rounded-[10px] border border-app-border-soft py-3 items-center ${
-                    isActive ? "bg-app-border-soft" : "bg-app-card"
+                  className={`flex-1 items-center rounded-[12px] border py-3 ${
+                    isActive
+                      ? "border-sky-400/50 bg-[#2b6fff]"
+                      : "border-white/10 bg-[#232831]"
                   }`}
                 >
                   <Text
-                    className={`font-semibold capitalize ${
-                      isActive ? "text-app-text" : "text-app-muted"
+                    className={`text-[15px] font-semibold capitalize ${
+                      isActive ? "text-white" : "text-white/70"
                     }`}
                   >
                     {type}
@@ -164,37 +182,37 @@ export default function CreateGroupScreen() {
         />
 
         {errorMessage ? (
-          <Text className="text-app-danger">
+          <Text className="rounded-[12px] border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-rose-300">
             Could not create group: {errorMessage}
           </Text>
         ) : null}
 
-        <View className="flex-row gap-3 mt-auto">
+        <View className="mt-1 flex-row gap-3">
           <Pressable
             onPress={() => router.back()}
             disabled={isSubmitting}
-            className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
+            className="flex-1 items-center rounded-[12px] border border-white/10 bg-[#232831] py-3"
           >
-            <Text className="text-app-text font-semibold">Cancel</Text>
+            <Text className="font-semibold text-white">Cancel</Text>
           </Pressable>
           <Pressable
             onPress={handleConfirm}
             disabled={!canConfirm}
-            className={`flex-1 rounded-[10px] py-3 items-center ${
-              canConfirm ? "bg-app-primary" : "bg-app-primary-dim"
+            className={`flex-1 items-center rounded-[12px] py-3 ${
+              canConfirm ? "bg-[#2b6fff]" : "bg-[#2b6fff]/50"
             }`}
           >
             {isSubmitting ? (
               <View className="flex-row items-center gap-2">
-                <ActivityIndicator color="#f4f7ff" />
-                <Text className="text-app-text font-semibold">Creating…</Text>
+                <ActivityIndicator color="#fff" />
+                <Text className="font-semibold text-white">Creating...</Text>
               </View>
             ) : (
-              <Text className="text-app-text font-semibold">Confirm</Text>
+              <Text className="font-semibold text-white">Create group</Text>
             )}
           </Pressable>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
