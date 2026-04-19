@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -63,6 +64,20 @@ function formatMoney(value: number) {
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const [selectedDebtRow, setSelectedDebtRow] = useState<{
+    key: string;
+    leftName: string;
+    rightName: string;
+    amountEur: number;
+    amountCents: number;
+    arrow: "→" | "←";
+    debtorId: string;
+    creditorId: string;
+    debtorName: string;
+    creditorName: string;
+  } | null>(null);
+  const [reminderSent, setReminderSent] = useState(false);
 
   const groupQuery = useQuery({
     queryKey: groupQueryKey(id),
@@ -93,6 +108,34 @@ export default function GroupDetailScreen() {
       debtsQuery.refetch();
     }, [groupQuery, membersQuery, debtsQuery])
   );
+
+  const settleDebtMutation = useMutation({
+    mutationFn: async (row: NonNullable<typeof selectedDebtRow>) => {
+      if (!id) return;
+      await backendClient.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
+        id,
+        {
+          description: `Settle ${row.debtorName} -> ${row.creditorName}`,
+          paidBy: row.debtorId,
+          participantUserIds: [row.creditorId],
+          splitType: "Equal",
+          items: [
+            {
+              description: `Settlement ${row.debtorName} -> ${row.creditorName}`,
+              amount: row.amountCents,
+            },
+          ],
+        }
+      );
+    },
+    onSuccess: () => {
+      if (!id) return;
+      queryClient.invalidateQueries({ queryKey: ["groups", id] });
+      queryClient.invalidateQueries({ queryKey: ["groups", id, "debts"] });
+      queryClient.invalidateQueries({ queryKey: ["users", CURRENT_USER_BACKEND_ID, "groups"] });
+      setSelectedDebtRow(null);
+    },
+  });
 
   if (groupQuery.isPending) {
     return (
@@ -139,6 +182,80 @@ export default function GroupDetailScreen() {
   const memberNameById = new Map(
     (membersQuery.data ?? []).map((member) => [member.id, member.display_name])
   );
+
+  const debtRows = (() => {
+    if (!debtsQuery.data) return [] as {
+      key: string;
+      leftName: string;
+      rightName: string;
+      amountEur: number;
+      amountCents: number;
+      arrow: "→" | "←";
+      debtorId: string;
+      creditorId: string;
+      debtorName: string;
+      creditorName: string;
+    }[];
+
+    const rows: {
+      key: string;
+      leftName: string;
+      rightName: string;
+      amountEur: number;
+      amountCents: number;
+      arrow: "→" | "←";
+      debtorId: string;
+      creditorId: string;
+      debtorName: string;
+      creditorName: string;
+    }[] = [];
+
+    const { member_ids: memberIds, matrix } = debtsQuery.data;
+    for (let i = 0; i < memberIds.length; i += 1) {
+      for (let j = i + 1; j < memberIds.length; j += 1) {
+        const iOwesJCents = matrix[i]?.[j] ?? 0;
+        const jOwesICents = matrix[j]?.[i] ?? 0;
+        const netCents = iOwesJCents - jOwesICents;
+        if (netCents === 0) continue;
+
+        const debtorId = netCents > 0 ? memberIds[i] : memberIds[j];
+        const creditorId = netCents > 0 ? memberIds[j] : memberIds[i];
+        const debtorName = memberNameById.get(debtorId) ?? debtorId;
+        const creditorName = memberNameById.get(creditorId) ?? creditorId;
+        const amountEur = Math.abs(netCents) / 100;
+
+        if (debtorName.localeCompare(creditorName) <= 0) {
+          rows.push({
+            key: `${debtorId}->${creditorId}`,
+            leftName: debtorName,
+            rightName: creditorName,
+            amountEur,
+            amountCents: Math.abs(netCents),
+            arrow: "→",
+            debtorId,
+            creditorId,
+            debtorName,
+            creditorName,
+          });
+        } else {
+          rows.push({
+            key: `${creditorId}<-${debtorId}`,
+            leftName: creditorName,
+            rightName: debtorName,
+            amountEur,
+            amountCents: Math.abs(netCents),
+            arrow: "←",
+            debtorId,
+            creditorId,
+            debtorName,
+            creditorName,
+          });
+        }
+      }
+    }
+
+    return rows.sort((a, b) => b.amountEur - a.amountEur);
+  })();
 
   const userBalanceEur = debtsQuery.data
     ? computeUserNetBalanceEur(debtsQuery.data, CURRENT_USER_BACKEND_ID)
@@ -218,9 +335,55 @@ export default function GroupDetailScreen() {
               onPress={() => router.push(`/group/${id}/add-receipt`)}
               className="flex-1 rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
             >
-              <Text className="text-white font-semibold">Add a receipt</Text>
+              <Text className="text-white font-semibold">Scan receipt</Text>
             </Pressable>
           </View>
+        </View>
+
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-white">Debts</Text>
+            {!debtsQuery.isPending && !debtsQuery.isError ? (
+              <Text className="text-sm text-sky-400">{debtRows.length} total</Text>
+            ) : null}
+          </View>
+
+          {debtsQuery.isPending ? (
+            <View className="flex-row items-center gap-2 py-1">
+              <ActivityIndicator color="#38bdf8" />
+              <Text className="text-white/55">Loading debts...</Text>
+            </View>
+          ) : debtsQuery.isError ? (
+            <Text className="text-sm text-rose-400">Couldn’t load debts</Text>
+          ) : debtRows.length === 0 ? (
+            <Text className="italic text-white/45">No debts between members.</Text>
+          ) : (
+            debtRows.map((row) => (
+              <Pressable
+                key={row.key}
+                onPress={() => {
+                  setReminderSent(false);
+                  setSelectedDebtRow(row);
+                }}
+                className="rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
+              >
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text className="flex-1 text-[15px] font-semibold text-white" numberOfLines={1}>
+                    {row.leftName}
+                  </Text>
+                  <View className="items-center px-1">
+                    <Text className="text-[12px] font-semibold text-sky-300">
+                      {formatMoney(row.amountEur)}
+                    </Text>
+                    <Text className="text-[14px] font-bold text-white/85">{row.arrow}</Text>
+                  </View>
+                  <Text className="flex-1 text-right text-[15px] font-semibold text-white" numberOfLines={1}>
+                    {row.rightName}
+                  </Text>
+                </View>
+              </Pressable>
+            ))
+          )}
         </View>
 
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
@@ -290,6 +453,105 @@ export default function GroupDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={selectedDebtRow !== null}
+        onRequestClose={() => setSelectedDebtRow(null)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/65 px-6">
+          {selectedDebtRow ? (
+            <View className="w-full max-w-[360px] rounded-[20px] border border-white/10 bg-[#171a20] p-5">
+              {CURRENT_USER_BACKEND_ID === selectedDebtRow.creditorId ? (
+                <>
+                  <Text className="text-xl font-bold text-white text-center">
+                    {selectedDebtRow.debtorName}
+                  </Text>
+                  <Text className="mt-2 text-center text-white/65">owes you</Text>
+                  <Text className="mt-2 text-center text-3xl font-bold text-emerald-400">
+                    {formatMoney(selectedDebtRow.amountEur)}
+                  </Text>
+
+                  <View className="mt-5 flex-row gap-3">
+                    <Pressable
+                      onPress={() => setSelectedDebtRow(null)}
+                      className="flex-1 rounded-[12px] border border-white/10 bg-[#232831] py-3 items-center"
+                    >
+                      <Text className="text-white font-semibold">Close</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setReminderSent(true);
+                        setTimeout(() => {
+                          setSelectedDebtRow(null);
+                          setReminderSent(false);
+                        }, 650);
+                      }}
+                      className={`flex-1 rounded-[12px] py-3 items-center ${
+                        reminderSent ? "bg-gray-500" : "bg-[#2b6fff]"
+                      }`}
+                    >
+                      <Text className="text-white font-semibold">
+                        {reminderSent ? "Reminder sent" : "Remind"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : CURRENT_USER_BACKEND_ID === selectedDebtRow.debtorId ? (
+                <>
+                  <Text className="text-xl font-bold text-white text-center">
+                    You owe {selectedDebtRow.creditorName}
+                  </Text>
+                  <Text className="mt-2 text-center text-3xl font-bold text-rose-400">
+                    {formatMoney(selectedDebtRow.amountEur)}
+                  </Text>
+
+                  <View className="mt-5 flex-row gap-3">
+                    <Pressable
+                      onPress={() => setSelectedDebtRow(null)}
+                      className="flex-1 rounded-[12px] border border-white/10 bg-[#232831] py-3 items-center"
+                    >
+                      <Text className="text-white font-semibold">Close</Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={settleDebtMutation.isPending}
+                      onPress={() => settleDebtMutation.mutate(selectedDebtRow)}
+                      className={`flex-1 rounded-[12px] py-3 items-center ${
+                        settleDebtMutation.isPending ? "bg-[#2b6fff]/50" : "bg-[#2b6fff]"
+                      }`}
+                    >
+                      {settleDebtMutation.isPending ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text className="text-white font-semibold">Settle</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text className="text-xl font-bold text-white text-center">
+                    Debt details
+                  </Text>
+                  <Text className="mt-2 text-center text-white/65">
+                    {selectedDebtRow.debtorName} owes {selectedDebtRow.creditorName}
+                  </Text>
+                  <Text className="mt-2 text-center text-2xl font-bold text-sky-300">
+                    {formatMoney(selectedDebtRow.amountEur)}
+                  </Text>
+                  <Pressable
+                    onPress={() => setSelectedDebtRow(null)}
+                    className="mt-5 rounded-[12px] border border-white/10 bg-[#232831] py-3 items-center"
+                  >
+                    <Text className="text-white font-semibold">Close</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
