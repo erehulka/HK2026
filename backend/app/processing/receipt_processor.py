@@ -10,8 +10,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-#from pillow_heif import register_heif_opener
-#register_heif_opener()
+from pillow_heif import register_heif_opener
+register_heif_opener()
 
 from dotenv import load_dotenv
 from mistralai import Mistral, models
