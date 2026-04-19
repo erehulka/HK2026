@@ -10,8 +10,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from pillow_heif import register_heif_opener
-register_heif_opener()
+#from pillow_heif import register_heif_opener
+#register_heif_opener()
 
 from dotenv import load_dotenv
 from mistralai import Mistral, models
@@ -90,6 +90,70 @@ class ReceiptData:
         d["languages"] = self.languages
         return d
 
+    def interpret_labels(self) -> None:
+        """
+        Rewrite item labels in-place using the LLM.
+        This version assumes the ReceiptData instance is well-formed.
+        It updates self.items[*].name directly and does not return anything.
+        """
+
+        client = Mistral(api_key=_require_mistral_api_key())
+        items = self.items
+
+        # Group by language
+        by_language: dict[str, list[int]] = {}
+        for idx, item in enumerate(items):
+            by_language.setdefault(item.language, []).append(idx)
+
+        for lang, indices in by_language.items():
+            label_list = "\n".join(f'{idx}. "{items[idx].name}"' for idx in indices)
+            lang_desc = (
+                f"language tag '{lang}'" if lang != "und" else "an unidentified language"
+            )
+            context = (
+                f'Merchant: "{self.merchant_name}". '
+                f'The following labels are in {lang_desc}.'
+            )
+
+            prompt = f"""
+    {context}
+
+    Below is a numbered list of item labels from a receipt. Many are abbreviated,
+    use brand shorthand, or contain store codes.
+
+    Your task: for each label, produce a plain-language rewrite ONLY if the label
+    is clearly truncated or abbreviated.
+
+    RULES:
+    - If the label is already a complete, normal phrase, return it EXACTLY as-is.
+    - DO NOT add explanations, descriptions, parentheticals, or clarifications.
+    - DO NOT guess ingredients, brands, or categories.
+    - DO NOT add anything not explicitly present in the original text.
+    - Only expand abbreviations or obvious truncations.
+    - If unsure, return the original label unchanged.
+
+    Labels:
+    {label_list}
+
+    Return a JSON array with exactly {len(indices)} objects:
+    [
+    {{"index": <original_index>, "interpreted_name": "...", "interpreted": true}},
+    ...
+    ]
+    """
+
+            raw = _call_mistral_text(client, prompt)
+            cleaned = _strip_fences(raw)
+            start, end = cleaned.find("["), cleaned.rfind("]") + 1
+            entries = json.loads(cleaned[start:end])
+
+            # Update items in-place
+            for e in entries:
+                idx = int(e["index"])
+                new_name = str(e["interpreted_name"])
+                items[idx].name = new_name
+
+
 
 @dataclass
 class InterpretedItem:
@@ -114,94 +178,6 @@ class ProcessResult:
     reason: str = ""
     data: Optional[ReceiptData] = None
     json_path: Optional[Path] = None
-
-    # ── label interpretation ──────────────────────────────────────────────────
-
-    def interpret_labels(self) -> list[InterpretedItem]:
-        if not self.ok or self.data is None:
-            raise RuntimeError("Cannot interpret labels on a failed ProcessResult.")
-
-        client = Mistral(api_key=_require_mistral_api_key())
-        items = self.data.items
-
-        by_language: dict[str, list[int]] = {}
-        for idx, item in enumerate(items):
-            by_language.setdefault(item.language, []).append(idx)
-
-        results: dict[int, InterpretedItem] = {}
-
-        for lang, indices in by_language.items():
-            label_list = "\n".join(f'{idx}. "{items[idx].name}"' for idx in indices)
-            lang_desc = (
-                f"language tag '{lang}'" if lang != "und" else "an unidentified language"
-            )
-            context = (
-                f'Merchant: "{self.data.merchant_name}". '
-                f'The following labels are in {lang_desc}.'
-            )
-            prompt = f"""
-{context}
-
-Below is a numbered list of item labels from a receipt. Many are abbreviated,
-use brand shorthand, or contain store codes.
-
-Your task: for each label, produce a plain-language rewrite ONLY if the label
-is clearly truncated or abbreviated.
-
-RULES:
-- If the label is already a complete, normal phrase, return it EXACTLY as-is, character by character.
-- DO NOT add explanations, descriptions, parentheticals, or clarifications.
-- DO NOT guess ingredients, brands, or categories.
-- DO NOT add anything that was not explicitly present in the original text.
-- Only expand abbreviations or obvious truncations (e.g., "GRL STK W SLD" → "Grilled steak with salad").
-- If unsure, return the original label unchanged.
-
-If you genuinely cannot identify what the item is (e.g. a pure numeric PLU code,
-an internal store SKU, or too ambiguous), set interpreted to false and copy the
-original label unchanged into interpreted_name.
-
-Labels:
-{label_list}
-
-Return a JSON array with exactly {len(indices)} objects, preserving the original
-index numbers (do not renumber them):
-[
-  {{"index": <original_index>, "interpreted_name": "...", "interpreted": true}},
-  ...
-]
-"""
-            raw = _call_mistral_text(client, prompt)
-            cleaned = _strip_fences(raw)
-            start, end = cleaned.find("["), cleaned.rfind("]") + 1
-            if start == -1 or end == 0:
-                raise ValueError(
-                    f"No JSON array in interpret_labels response:\n{raw}"
-                )
-            entries = json.loads(cleaned[start:end])
-
-            for e in entries:
-                idx = int(e["index"])
-                results[idx] = InterpretedItem(
-                    original_name=items[idx].name,
-                    interpreted_name=str(e["interpreted_name"]),
-                    interpreted=bool(e.get("interpreted", True)),
-                    language=items[idx].language,
-                    index=idx,
-                )
-
-        return [
-            results.get(
-                i,
-                InterpretedItem(
-                    original_name=items[i].name,
-                    interpreted_name=items[i].name,
-                    interpreted=False,
-                    language=items[i].language,
-                    index=i,
-                ),
-            )
-            for i in range(len(items))
-        ]
 
     # ── translation ───────────────────────────────────────────────────────────
 
@@ -961,6 +937,7 @@ def process_receipt(
     output_dir: str | Path = ".",
     *,
     save_json: bool = True,
+    auto_interpret: bool = True,
 ) -> ProcessResult:
     image_path = Path(image_path)
     output_dir = Path(output_dir)
@@ -1017,7 +994,11 @@ def process_receipt(
     # 5) Verify totals
     receipt_data.ocr_sum_verified = _verify_total(receipt_data)
 
-    # 6) Save JSON (optional)
+    # 6) Interpret labels if told to do so
+    if auto_interpret:
+        receipt_data.interpret_labels()
+
+    # 7) Save JSON (optional)
     if save_json:
         try:
             json_path = _step3_save(receipt_data, image_path, output_dir)

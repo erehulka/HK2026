@@ -1,0 +1,60 @@
+{
+  "summary_label": "Receipt",
+  "merchant_name": "Walmart",
+  "merchant_address": "5940 Losee Rd, North Las Vegas NV 89081",
+  "date": "2021-08-12",
+  "time": "11:16:18",
+  "items": [
+    {
+      "name": "VINYL GLOVES",
+      "quantity": 1.0,
+      "unit_price": 11.72,
+      "total_price": 11.72,
+      "notes": "",
+      "language": "en"
+    },
+    {
+      "name": "ALAX DISHEIM",
+      "quantity": 1.0,
+      "unit_price": 2.96,
+      "total_price": 2.96,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "ADVIL DUAL 18",
+      "quantity": 1.0,
+      "unit_price": 3.98,
+      "total_price": 3.98,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "MCC/SCH PARS",
+      "quantity": 1.0,
+      "unit_price": 2.44,
+      "total_price": 2.44,
+      "notes": "",
+      "language": "und"
+    },
+    {
+      "name": "VINYL GLOVES",
+      "quantity": 1.0,
+      "unit_price": 11.72,
+      "total_price": 11.72,
+      "notes": "",
+      "language": "en"
+    }
+  ],
+  "subtotal": 32.82,
+  "vat_rate_pct": 8.375,
+  "vat_amount": 2.54,
+  "tip": null,
+  "total": 35.36,
+  "currency": "USD",
+  "ocr_sum_verified": true,
+  "raw_text": "Give us feedback @ survey.walmart.com\nThank you! ID #:7QD2B31H2RS2\n\nWalmart\n702-639-1202 Mgr. SHIREEN\n5940 LOSEE RD\nNORTH LAS VEGAS NV 89081\nST# 04339 OP# 009046 TE# 43 TR# 08545\nVINYL GLOVES 019339700848 11.72 X\nALAX DISHEIM 003500049863 2.96 X\nADVIL DUAL 18 030573014718H 3.98 X\nMCC/SCH PARS 005210000738 E 2.44 0\nVINYL GLOVES 019339700845 11.72 X\nSUBTOTAL 32.82\nTAX 1 8.375 % 2.54\nTOTAL 35.36\nVISA TEND 35.36\n***\nUS DEBIT\nAPPROVAL # 037175\nREF # 122400480186\nTRANS ID - 46122466973-380\nVALIDATION - HURT\nPAYMENT SERVICE - E\nAID A0000000980840\nAAC A97E6F4D6D3076AE\nTERMINAL # SC012072\n08/12/21 11:36:18\nCHANGE DUE 0.00\n# ITEMS SOLD 5\nTC# 5312 0305 0836 2911 9351\n\nLow Prices You Can Trust. Every Day.\n08/12/21 11:36:18\n***CUSTOMER COPY***",
+  "languages": [
+    "en"
+  ]
+}
