@@ -12,20 +12,20 @@
  * Do not edit the class manually.
  */
 
-import type { Configuration } from "./configuration";
-import type { AxiosPromise, AxiosInstance, RawAxiosRequestConfig } from "axios";
+import type { AxiosInstance, AxiosPromise, RawAxiosRequestConfig } from "axios";
 import globalAxios from "axios";
+import type { Configuration } from "./configuration";
 // Some imports not used depending on template conditions
 // @ts-ignore
+import type { RequestArgs } from "./base";
 import {
   DUMMY_BASE_URL,
   assertParamExists,
-  setSearchParams,
-  serializeDataIfNeeded,
-  toPathString,
   createRequestFunction,
+  serializeDataIfNeeded,
+  setSearchParams,
+  toPathString,
 } from "./common";
-import type { RequestArgs } from "./base";
 // @ts-ignore
 import { BASE_PATH, BaseAPI, RequiredError, operationServerMap } from "./base";
 
@@ -131,7 +131,8 @@ export const ExpenseSplitType = {
   Shares: "Shares",
 } as const;
 
-export type ExpenseSplitType = (typeof ExpenseSplitType)[keyof typeof ExpenseSplitType];
+export type ExpenseSplitType =
+  (typeof ExpenseSplitType)[keyof typeof ExpenseSplitType];
 
 /**
  * Partial update for an expense (PATCH).
@@ -310,6 +311,53 @@ export interface SimplifiedGroupDebtsOut {
   matrix: Array<Array<number>>;
 }
 /**
+ * One receipt line label plus its detected language (for translation only).
+ */
+export interface TranslateLabelLineIn {
+  /**
+   * Item label text to translate
+   */
+  name: string;
+  /**
+   * BCP-47 language tag for this label (hint for the model)
+   */
+  language?: string;
+}
+/**
+ * Input for ``POST /receipts/translate-labels``.
+ */
+export interface TranslateLabelsIn {
+  /**
+   * Goal language for labels (e.g. \"Slovak\", \"English\")
+   */
+  target_language: string;
+  /**
+   * Ordered line labels; order defines indices 0..n-1
+   */
+  items: Array<TranslateLabelLineIn>;
+}
+/**
+ * Response from ``POST /receipts/translate-labels``.
+ */
+export interface TranslateLabelsOut {
+  labels: Array<TranslatedLabelOut>;
+}
+/**
+ * One translated line label.
+ */
+export interface TranslatedLabelOut {
+  index: number;
+  /**
+   * Source string that was translated (the input ``name`` for that line)
+   */
+  original_name: string;
+  translated_name: string;
+  /**
+   * BCP-47 tag from the corresponding input line
+   */
+  source_language: string;
+}
+/**
  * Validated body for creating a user.
  */
 export interface UserCreate {
@@ -341,7 +389,9 @@ export interface ValidationError {
 /**
  * DefaultApi - axios parameter creator
  */
-export const DefaultApiAxiosParamCreator = function (configuration?: Configuration) {
+export const DefaultApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -349,7 +399,9 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    readRootGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+    readRootGet: async (
+      options: RawAxiosRequestConfig = {}
+    ): Promise<RequestArgs> => {
       const localVarPath = `/`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -358,14 +410,19 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -393,18 +450,27 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      * @throws {RequiredError}
      */
     async readRootGet(
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<{ [key: string]: string }>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.readRootGet(options);
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<{ [key: string]: string }>
+    > {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.readRootGet(
+        options
+      );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["DefaultApi.readRootGet"]?.[localVarOperationServerIndex]?.url;
+        operationServerMap["DefaultApi.readRootGet"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -416,7 +482,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
 export const DefaultApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = DefaultApiFp(configuration);
   return {
@@ -426,8 +492,12 @@ export const DefaultApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    readRootGet(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: string }> {
-      return localVarFp.readRootGet(options).then((request) => request(axios, basePath));
+    readRootGet(
+      options?: RawAxiosRequestConfig
+    ): AxiosPromise<{ [key: string]: string }> {
+      return localVarFp
+        .readRootGet(options)
+        .then((request) => request(axios, basePath));
     },
   };
 };
@@ -442,7 +512,9 @@ export interface DefaultApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  readRootGet(options?: RawAxiosRequestConfig): AxiosPromise<{ [key: string]: string }>;
+  readRootGet(
+    options?: RawAxiosRequestConfig
+  ): AxiosPromise<{ [key: string]: string }>;
 }
 
 /**
@@ -465,7 +537,9 @@ export class DefaultApi extends BaseAPI implements DefaultApiInterface {
 /**
  * ExpensesApi - axios parameter creator
  */
-export const ExpensesApiAxiosParamCreator = function (configuration?: Configuration) {
+export const ExpensesApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -478,19 +552,23 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
     createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost: async (
       groupId: string,
       expenseFrontendCreate: ExpenseFrontendCreate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost", "groupId", groupId);
+      assertParamExists(
+        "createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseFrontendCreate' is not null or undefined
       assertParamExists(
         "createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost",
         "expenseFrontendCreate",
-        expenseFrontendCreate,
+        expenseFrontendCreate
       );
       const localVarPath = `/groups/{group_id}/expenses/frontend`.replace(
         `{${"group_id"}}`,
-        encodeURIComponent(String(groupId)),
+        encodeURIComponent(String(groupId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -499,7 +577,11 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -507,7 +589,8 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -516,7 +599,7 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarRequestOptions.data = serializeDataIfNeeded(
         expenseFrontendCreate,
         localVarRequestOptions,
-        configuration,
+        configuration
       );
 
       return {
@@ -535,15 +618,23 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
     createExpenseGroupsGroupIdExpensesPost: async (
       groupId: string,
       expenseCreate: ExpenseCreate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("createExpenseGroupsGroupIdExpensesPost", "groupId", groupId);
+      assertParamExists(
+        "createExpenseGroupsGroupIdExpensesPost",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseCreate' is not null or undefined
-      assertParamExists("createExpenseGroupsGroupIdExpensesPost", "expenseCreate", expenseCreate);
+      assertParamExists(
+        "createExpenseGroupsGroupIdExpensesPost",
+        "expenseCreate",
+        expenseCreate
+      );
       const localVarPath = `/groups/{group_id}/expenses/`.replace(
         `{${"group_id"}}`,
-        encodeURIComponent(String(groupId)),
+        encodeURIComponent(String(groupId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -552,7 +643,11 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -560,7 +655,8 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -569,7 +665,7 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarRequestOptions.data = serializeDataIfNeeded(
         expenseCreate,
         localVarRequestOptions,
-        configuration,
+        configuration
       );
 
       return {
@@ -588,12 +684,20 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
     deleteExpenseGroupsGroupIdExpensesExpenseIdDelete: async (
       groupId: string,
       expenseId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("deleteExpenseGroupsGroupIdExpensesExpenseIdDelete", "groupId", groupId);
+      assertParamExists(
+        "deleteExpenseGroupsGroupIdExpensesExpenseIdDelete",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseId' is not null or undefined
-      assertParamExists("deleteExpenseGroupsGroupIdExpensesExpenseIdDelete", "expenseId", expenseId);
+      assertParamExists(
+        "deleteExpenseGroupsGroupIdExpensesExpenseIdDelete",
+        "expenseId",
+        expenseId
+      );
       const localVarPath = `/groups/{group_id}/expenses/{expense_id}`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)));
@@ -604,14 +708,19 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "DELETE", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "DELETE",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -634,12 +743,20 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
     getExpenseGroupsGroupIdExpensesExpenseIdGet: async (
       groupId: string,
       expenseId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("getExpenseGroupsGroupIdExpensesExpenseIdGet", "groupId", groupId);
+      assertParamExists(
+        "getExpenseGroupsGroupIdExpensesExpenseIdGet",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseId' is not null or undefined
-      assertParamExists("getExpenseGroupsGroupIdExpensesExpenseIdGet", "expenseId", expenseId);
+      assertParamExists(
+        "getExpenseGroupsGroupIdExpensesExpenseIdGet",
+        "expenseId",
+        expenseId
+      );
       const localVarPath = `/groups/{group_id}/expenses/{expense_id}`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)));
@@ -650,14 +767,19 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -682,14 +804,26 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       groupId: string,
       expenseId: string,
       expenseUpdate: ExpenseUpdate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("updateExpenseGroupsGroupIdExpensesExpenseIdPatch", "groupId", groupId);
+      assertParamExists(
+        "updateExpenseGroupsGroupIdExpensesExpenseIdPatch",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseId' is not null or undefined
-      assertParamExists("updateExpenseGroupsGroupIdExpensesExpenseIdPatch", "expenseId", expenseId);
+      assertParamExists(
+        "updateExpenseGroupsGroupIdExpensesExpenseIdPatch",
+        "expenseId",
+        expenseId
+      );
       // verify required parameter 'expenseUpdate' is not null or undefined
-      assertParamExists("updateExpenseGroupsGroupIdExpensesExpenseIdPatch", "expenseUpdate", expenseUpdate);
+      assertParamExists(
+        "updateExpenseGroupsGroupIdExpensesExpenseIdPatch",
+        "expenseUpdate",
+        expenseUpdate
+      );
       const localVarPath = `/groups/{group_id}/expenses/{expense_id}`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)));
@@ -700,7 +834,11 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "PATCH", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "PATCH",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -708,7 +846,8 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -717,7 +856,7 @@ export const ExpensesApiAxiosParamCreator = function (configuration?: Configurat
       localVarRequestOptions.data = serializeDataIfNeeded(
         expenseUpdate,
         localVarRequestOptions,
-        configuration,
+        configuration
       );
 
       return {
@@ -745,25 +884,30 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
     async createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
       groupId: string,
       expenseFrontendCreate: ExpenseFrontendCreate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseDetailOut>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<ExpenseDetailOut>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
           groupId,
           expenseFrontendCreate,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ExpensesApi.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ExpensesApi.createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -777,24 +921,27 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
     async createExpenseGroupsGroupIdExpensesPost(
       groupId: string,
       expenseCreate: ExpenseCreate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.createExpenseGroupsGroupIdExpensesPost(
-        groupId,
-        expenseCreate,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.createExpenseGroupsGroupIdExpensesPost(
+          groupId,
+          expenseCreate,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ExpensesApi.createExpenseGroupsGroupIdExpensesPost"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ExpensesApi.createExpenseGroupsGroupIdExpensesPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -808,25 +955,27 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
     async deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
       groupId: string,
       expenseId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
           groupId,
           expenseId,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ExpensesApi.deleteExpenseGroupsGroupIdExpensesExpenseIdDelete"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ExpensesApi.deleteExpenseGroupsGroupIdExpensesExpenseIdDelete"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -840,24 +989,30 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
     async getExpenseGroupsGroupIdExpensesExpenseIdGet(
       groupId: string,
       expenseId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseDetailOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.getExpenseGroupsGroupIdExpensesExpenseIdGet(
-        groupId,
-        expenseId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<ExpenseDetailOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.getExpenseGroupsGroupIdExpensesExpenseIdGet(
+          groupId,
+          expenseId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ExpensesApi.getExpenseGroupsGroupIdExpensesExpenseIdGet"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ExpensesApi.getExpenseGroupsGroupIdExpensesExpenseIdGet"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -873,26 +1028,28 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
       groupId: string,
       expenseId: string,
       expenseUpdate: ExpenseUpdate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseOut>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<ExpenseOut>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.updateExpenseGroupsGroupIdExpensesExpenseIdPatch(
           groupId,
           expenseId,
           expenseUpdate,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ExpensesApi.updateExpenseGroupsGroupIdExpensesExpenseIdPatch"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ExpensesApi.updateExpenseGroupsGroupIdExpensesExpenseIdPatch"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -904,7 +1061,7 @@ export const ExpensesApiFp = function (configuration?: Configuration) {
 export const ExpensesApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = ExpensesApiFp(configuration);
   return {
@@ -919,10 +1076,14 @@ export const ExpensesApiFactory = function (
     createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
       groupId: string,
       expenseFrontendCreate: ExpenseFrontendCreate,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ExpenseDetailOut> {
       return localVarFp
-        .createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(groupId, expenseFrontendCreate, options)
+        .createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
+          groupId,
+          expenseFrontendCreate,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -936,7 +1097,7 @@ export const ExpensesApiFactory = function (
     createExpenseGroupsGroupIdExpensesPost(
       groupId: string,
       expenseCreate: ExpenseCreate,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ExpenseOut> {
       return localVarFp
         .createExpenseGroupsGroupIdExpensesPost(groupId, expenseCreate, options)
@@ -953,10 +1114,14 @@ export const ExpensesApiFactory = function (
     deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
       groupId: string,
       expenseId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<void> {
       return localVarFp
-        .deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(groupId, expenseId, options)
+        .deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
+          groupId,
+          expenseId,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -970,10 +1135,14 @@ export const ExpensesApiFactory = function (
     getExpenseGroupsGroupIdExpensesExpenseIdGet(
       groupId: string,
       expenseId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ExpenseDetailOut> {
       return localVarFp
-        .getExpenseGroupsGroupIdExpensesExpenseIdGet(groupId, expenseId, options)
+        .getExpenseGroupsGroupIdExpensesExpenseIdGet(
+          groupId,
+          expenseId,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -989,10 +1158,15 @@ export const ExpensesApiFactory = function (
       groupId: string,
       expenseId: string,
       expenseUpdate: ExpenseUpdate,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ExpenseOut> {
       return localVarFp
-        .updateExpenseGroupsGroupIdExpensesExpenseIdPatch(groupId, expenseId, expenseUpdate, options)
+        .updateExpenseGroupsGroupIdExpensesExpenseIdPatch(
+          groupId,
+          expenseId,
+          expenseUpdate,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
   };
@@ -1013,7 +1187,7 @@ export interface ExpensesApiInterface {
   createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
     groupId: string,
     expenseFrontendCreate: ExpenseFrontendCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ExpenseDetailOut>;
 
   /**
@@ -1027,7 +1201,7 @@ export interface ExpensesApiInterface {
   createExpenseGroupsGroupIdExpensesPost(
     groupId: string,
     expenseCreate: ExpenseCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ExpenseOut>;
 
   /**
@@ -1041,7 +1215,7 @@ export interface ExpensesApiInterface {
   deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
     groupId: string,
     expenseId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<void>;
 
   /**
@@ -1055,7 +1229,7 @@ export interface ExpensesApiInterface {
   getExpenseGroupsGroupIdExpensesExpenseIdGet(
     groupId: string,
     expenseId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ExpenseDetailOut>;
 
   /**
@@ -1071,7 +1245,7 @@ export interface ExpensesApiInterface {
     groupId: string,
     expenseId: string,
     expenseUpdate: ExpenseUpdate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ExpenseOut>;
 }
 
@@ -1090,10 +1264,14 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
   public createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
     groupId: string,
     expenseFrontendCreate: ExpenseFrontendCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ExpensesApiFp(this.configuration)
-      .createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(groupId, expenseFrontendCreate, options)
+      .createExpenseFromFrontendGroupsGroupIdExpensesFrontendPost(
+        groupId,
+        expenseFrontendCreate,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 
@@ -1108,7 +1286,7 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
   public createExpenseGroupsGroupIdExpensesPost(
     groupId: string,
     expenseCreate: ExpenseCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ExpensesApiFp(this.configuration)
       .createExpenseGroupsGroupIdExpensesPost(groupId, expenseCreate, options)
@@ -1126,10 +1304,14 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
   public deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
     groupId: string,
     expenseId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ExpensesApiFp(this.configuration)
-      .deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(groupId, expenseId, options)
+      .deleteExpenseGroupsGroupIdExpensesExpenseIdDelete(
+        groupId,
+        expenseId,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 
@@ -1144,7 +1326,7 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
   public getExpenseGroupsGroupIdExpensesExpenseIdGet(
     groupId: string,
     expenseId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ExpensesApiFp(this.configuration)
       .getExpenseGroupsGroupIdExpensesExpenseIdGet(groupId, expenseId, options)
@@ -1164,10 +1346,15 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
     groupId: string,
     expenseId: string,
     expenseUpdate: ExpenseUpdate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ExpensesApiFp(this.configuration)
-      .updateExpenseGroupsGroupIdExpensesExpenseIdPatch(groupId, expenseId, expenseUpdate, options)
+      .updateExpenseGroupsGroupIdExpensesExpenseIdPatch(
+        groupId,
+        expenseId,
+        expenseUpdate,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 }
@@ -1175,7 +1362,9 @@ export class ExpensesApi extends BaseAPI implements ExpensesApiInterface {
 /**
  * GroupsApi - axios parameter creator
  */
-export const GroupsApiAxiosParamCreator = function (configuration?: Configuration) {
+export const GroupsApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -1188,12 +1377,20 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
     addUserToGroupGroupsGroupIdUsersUserIdPost: async (
       groupId: string,
       userId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("addUserToGroupGroupsGroupIdUsersUserIdPost", "groupId", groupId);
+      assertParamExists(
+        "addUserToGroupGroupsGroupIdUsersUserIdPost",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'userId' is not null or undefined
-      assertParamExists("addUserToGroupGroupsGroupIdUsersUserIdPost", "userId", userId);
+      assertParamExists(
+        "addUserToGroupGroupsGroupIdUsersUserIdPost",
+        "userId",
+        userId
+      );
       const localVarPath = `/groups/{group_id}/users/{user_id}`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
@@ -1204,14 +1401,19 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -1232,7 +1434,7 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
      */
     createGroupGroupsPost: async (
       groupCreate: GroupCreate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupCreate' is not null or undefined
       assertParamExists("createGroupGroupsPost", "groupCreate", groupCreate);
@@ -1244,7 +1446,11 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -1252,13 +1458,18 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
         ...options.headers,
       };
-      localVarRequestOptions.data = serializeDataIfNeeded(groupCreate, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(
+        groupCreate,
+        localVarRequestOptions,
+        configuration
+      );
 
       return {
         url: toPathString(localVarUrlObj),
@@ -1274,13 +1485,13 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
      */
     getGroupGroupsGroupIdGet: async (
       groupId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
       assertParamExists("getGroupGroupsGroupIdGet", "groupId", groupId);
       const localVarPath = `/groups/{group_id}`.replace(
         `{${"group_id"}}`,
-        encodeURIComponent(String(groupId)),
+        encodeURIComponent(String(groupId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1289,14 +1500,19 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -1317,13 +1533,17 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
      */
     getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet: async (
       groupId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet", "groupId", groupId);
+      assertParamExists(
+        "getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet",
+        "groupId",
+        groupId
+      );
       const localVarPath = `/groups/{group_id}/debts/simplified`.replace(
         `{${"group_id"}}`,
-        encodeURIComponent(String(groupId)),
+        encodeURIComponent(String(groupId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1332,14 +1552,19 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -1360,13 +1585,17 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
      */
     listGroupUsersGroupsGroupIdUsersGet: async (
       groupId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("listGroupUsersGroupsGroupIdUsersGet", "groupId", groupId);
+      assertParamExists(
+        "listGroupUsersGroupsGroupIdUsersGet",
+        "groupId",
+        groupId
+      );
       const localVarPath = `/groups/{group_id}/users`.replace(
         `{${"group_id"}}`,
-        encodeURIComponent(String(groupId)),
+        encodeURIComponent(String(groupId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1375,14 +1604,19 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -1405,12 +1639,20 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
     removeUserFromGroupGroupsGroupIdUsersUserIdDelete: async (
       groupId: string,
       userId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("removeUserFromGroupGroupsGroupIdUsersUserIdDelete", "groupId", groupId);
+      assertParamExists(
+        "removeUserFromGroupGroupsGroupIdUsersUserIdDelete",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'userId' is not null or undefined
-      assertParamExists("removeUserFromGroupGroupsGroupIdUsersUserIdDelete", "userId", userId);
+      assertParamExists(
+        "removeUserFromGroupGroupsGroupIdUsersUserIdDelete",
+        "userId",
+        userId
+      );
       const localVarPath = `/groups/{group_id}/users/{user_id}`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
@@ -1421,14 +1663,19 @@ export const GroupsApiAxiosParamCreator = function (configuration?: Configuratio
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "DELETE", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "DELETE",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -1460,24 +1707,30 @@ export const GroupsApiFp = function (configuration?: Configuration) {
     async addUserToGroupGroupsGroupIdUsersUserIdPost(
       groupId: string,
       userId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupMembershipOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.addUserToGroupGroupsGroupIdUsersUserIdPost(
-        groupId,
-        userId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<GroupMembershipOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.addUserToGroupGroupsGroupIdUsersUserIdPost(
+          groupId,
+          userId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.addUserToGroupGroupsGroupIdUsersUserIdPost"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "GroupsApi.addUserToGroupGroupsGroupIdUsersUserIdPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -1489,18 +1742,26 @@ export const GroupsApiFp = function (configuration?: Configuration) {
      */
     async createGroupGroupsPost(
       groupCreate: GroupCreate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.createGroupGroupsPost(groupCreate, options);
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.createGroupGroupsPost(
+          groupCreate,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.createGroupGroupsPost"]?.[localVarOperationServerIndex]?.url;
+        operationServerMap["GroupsApi.createGroupGroupsPost"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -1512,18 +1773,26 @@ export const GroupsApiFp = function (configuration?: Configuration) {
      */
     async getGroupGroupsGroupIdGet(
       groupId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupDetailOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.getGroupGroupsGroupIdGet(groupId, options);
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<GroupDetailOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.getGroupGroupsGroupIdGet(
+          groupId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.getGroupGroupsGroupIdGet"]?.[localVarOperationServerIndex]?.url;
+        operationServerMap["GroupsApi.getGroupGroupsGroupIdGet"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -1535,24 +1804,29 @@ export const GroupsApiFp = function (configuration?: Configuration) {
      */
     async getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
       groupId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SimplifiedGroupDebtsOut>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<SimplifiedGroupDebtsOut>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
           groupId,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "GroupsApi.getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -1564,22 +1838,26 @@ export const GroupsApiFp = function (configuration?: Configuration) {
      */
     async listGroupUsersGroupsGroupIdUsersGet(
       groupId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserOut>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.listGroupUsersGroupsGroupIdUsersGet(
-        groupId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserOut>>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.listGroupUsersGroupsGroupIdUsersGet(
+          groupId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.listGroupUsersGroupsGroupIdUsersGet"]?.[localVarOperationServerIndex]
-          ?.url;
+        operationServerMap["GroupsApi.listGroupUsersGroupsGroupIdUsersGet"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -1593,25 +1871,27 @@ export const GroupsApiFp = function (configuration?: Configuration) {
     async removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
       groupId: string,
       userId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
           groupId,
           userId,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["GroupsApi.removeUserFromGroupGroupsGroupIdUsersUserIdDelete"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "GroupsApi.removeUserFromGroupGroupsGroupIdUsersUserIdDelete"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -1623,7 +1903,7 @@ export const GroupsApiFp = function (configuration?: Configuration) {
 export const GroupsApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = GroupsApiFp(configuration);
   return {
@@ -1638,7 +1918,7 @@ export const GroupsApiFactory = function (
     addUserToGroupGroupsGroupIdUsersUserIdPost(
       groupId: string,
       userId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<GroupMembershipOut> {
       return localVarFp
         .addUserToGroupGroupsGroupIdUsersUserIdPost(groupId, userId, options)
@@ -1651,7 +1931,10 @@ export const GroupsApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    createGroupGroupsPost(groupCreate: GroupCreate, options?: RawAxiosRequestConfig): AxiosPromise<GroupOut> {
+    createGroupGroupsPost(
+      groupCreate: GroupCreate,
+      options?: RawAxiosRequestConfig
+    ): AxiosPromise<GroupOut> {
       return localVarFp
         .createGroupGroupsPost(groupCreate, options)
         .then((request) => request(axios, basePath));
@@ -1663,7 +1946,10 @@ export const GroupsApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getGroupGroupsGroupIdGet(groupId: string, options?: RawAxiosRequestConfig): AxiosPromise<GroupDetailOut> {
+    getGroupGroupsGroupIdGet(
+      groupId: string,
+      options?: RawAxiosRequestConfig
+    ): AxiosPromise<GroupDetailOut> {
       return localVarFp
         .getGroupGroupsGroupIdGet(groupId, options)
         .then((request) => request(axios, basePath));
@@ -1677,10 +1963,13 @@ export const GroupsApiFactory = function (
      */
     getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
       groupId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<SimplifiedGroupDebtsOut> {
       return localVarFp
-        .getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(groupId, options)
+        .getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
+          groupId,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -1692,7 +1981,7 @@ export const GroupsApiFactory = function (
      */
     listGroupUsersGroupsGroupIdUsersGet(
       groupId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<Array<UserOut>> {
       return localVarFp
         .listGroupUsersGroupsGroupIdUsersGet(groupId, options)
@@ -1709,10 +1998,14 @@ export const GroupsApiFactory = function (
     removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
       groupId: string,
       userId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<void> {
       return localVarFp
-        .removeUserFromGroupGroupsGroupIdUsersUserIdDelete(groupId, userId, options)
+        .removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
+          groupId,
+          userId,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
   };
@@ -1733,7 +2026,7 @@ export interface GroupsApiInterface {
   addUserToGroupGroupsGroupIdUsersUserIdPost(
     groupId: string,
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<GroupMembershipOut>;
 
   /**
@@ -1743,7 +2036,10 @@ export interface GroupsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  createGroupGroupsPost(groupCreate: GroupCreate, options?: RawAxiosRequestConfig): AxiosPromise<GroupOut>;
+  createGroupGroupsPost(
+    groupCreate: GroupCreate,
+    options?: RawAxiosRequestConfig
+  ): AxiosPromise<GroupOut>;
 
   /**
    *
@@ -1752,7 +2048,10 @@ export interface GroupsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  getGroupGroupsGroupIdGet(groupId: string, options?: RawAxiosRequestConfig): AxiosPromise<GroupDetailOut>;
+  getGroupGroupsGroupIdGet(
+    groupId: string,
+    options?: RawAxiosRequestConfig
+  ): AxiosPromise<GroupDetailOut>;
 
   /**
    * Return the simplified settlement matrix from all **Equal** split expenses in the group.  Rows/columns follow ``member_ids`` (lexicographically sorted user id strings). Amounts are euro cents. Unsupported expense types or invalid participant data yield HTTP 422.
@@ -1763,7 +2062,7 @@ export interface GroupsApiInterface {
    */
   getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
     groupId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<SimplifiedGroupDebtsOut>;
 
   /**
@@ -1775,7 +2074,7 @@ export interface GroupsApiInterface {
    */
   listGroupUsersGroupsGroupIdUsersGet(
     groupId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<Array<UserOut>>;
 
   /**
@@ -1789,7 +2088,7 @@ export interface GroupsApiInterface {
   removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
     groupId: string,
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<void>;
 }
 
@@ -1808,7 +2107,7 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
   public addUserToGroupGroupsGroupIdUsersUserIdPost(
     groupId: string,
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return GroupsApiFp(this.configuration)
       .addUserToGroupGroupsGroupIdUsersUserIdPost(groupId, userId, options)
@@ -1822,7 +2121,10 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public createGroupGroupsPost(groupCreate: GroupCreate, options?: RawAxiosRequestConfig) {
+  public createGroupGroupsPost(
+    groupCreate: GroupCreate,
+    options?: RawAxiosRequestConfig
+  ) {
     return GroupsApiFp(this.configuration)
       .createGroupGroupsPost(groupCreate, options)
       .then((request) => request(this.axios, this.basePath));
@@ -1835,7 +2137,10 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getGroupGroupsGroupIdGet(groupId: string, options?: RawAxiosRequestConfig) {
+  public getGroupGroupsGroupIdGet(
+    groupId: string,
+    options?: RawAxiosRequestConfig
+  ) {
     return GroupsApiFp(this.configuration)
       .getGroupGroupsGroupIdGet(groupId, options)
       .then((request) => request(this.axios, this.basePath));
@@ -1850,7 +2155,7 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
    */
   public getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(
     groupId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return GroupsApiFp(this.configuration)
       .getSimplifiedGroupDebtsGroupsGroupIdDebtsSimplifiedGet(groupId, options)
@@ -1864,7 +2169,10 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public listGroupUsersGroupsGroupIdUsersGet(groupId: string, options?: RawAxiosRequestConfig) {
+  public listGroupUsersGroupsGroupIdUsersGet(
+    groupId: string,
+    options?: RawAxiosRequestConfig
+  ) {
     return GroupsApiFp(this.configuration)
       .listGroupUsersGroupsGroupIdUsersGet(groupId, options)
       .then((request) => request(this.axios, this.basePath));
@@ -1881,10 +2189,14 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
   public removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
     groupId: string,
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return GroupsApiFp(this.configuration)
-      .removeUserFromGroupGroupsGroupIdUsersUserIdDelete(groupId, userId, options)
+      .removeUserFromGroupGroupsGroupIdUsersUserIdDelete(
+        groupId,
+        userId,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 }
@@ -1892,7 +2204,9 @@ export class GroupsApi extends BaseAPI implements GroupsApiInterface {
 /**
  * ItemsApi - axios parameter creator
  */
-export const ItemsApiAxiosParamCreator = function (configuration?: Configuration) {
+export const ItemsApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -1907,14 +2221,26 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
       groupId: string,
       expenseId: string,
       itemCreate: ItemCreate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
-      assertParamExists("addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost", "groupId", groupId);
+      assertParamExists(
+        "addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost",
+        "groupId",
+        groupId
+      );
       // verify required parameter 'expenseId' is not null or undefined
-      assertParamExists("addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost", "expenseId", expenseId);
+      assertParamExists(
+        "addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost",
+        "expenseId",
+        expenseId
+      );
       // verify required parameter 'itemCreate' is not null or undefined
-      assertParamExists("addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost", "itemCreate", itemCreate);
+      assertParamExists(
+        "addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost",
+        "itemCreate",
+        itemCreate
+      );
       const localVarPath = `/groups/{group_id}/expenses/{expense_id}/items`
         .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
         .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)));
@@ -1925,7 +2251,11 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -1933,13 +2263,18 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
         ...options.headers,
       };
-      localVarRequestOptions.data = serializeDataIfNeeded(itemCreate, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(
+        itemCreate,
+        localVarRequestOptions,
+        configuration
+      );
 
       return {
         url: toPathString(localVarUrlObj),
@@ -1959,26 +2294,31 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
       groupId: string,
       expenseId: string,
       itemId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
       assertParamExists(
         "deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete",
         "groupId",
-        groupId,
+        groupId
       );
       // verify required parameter 'expenseId' is not null or undefined
       assertParamExists(
         "deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete",
         "expenseId",
-        expenseId,
+        expenseId
       );
       // verify required parameter 'itemId' is not null or undefined
-      assertParamExists("deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete", "itemId", itemId);
-      const localVarPath = `/groups/{group_id}/expenses/{expense_id}/items/{item_id}`
-        .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
-        .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)))
-        .replace(`{${"item_id"}}`, encodeURIComponent(String(itemId)));
+      assertParamExists(
+        "deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete",
+        "itemId",
+        itemId
+      );
+      const localVarPath =
+        `/groups/{group_id}/expenses/{expense_id}/items/{item_id}`
+          .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
+          .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)))
+          .replace(`{${"item_id"}}`, encodeURIComponent(String(itemId)));
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1986,14 +2326,19 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "DELETE", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "DELETE",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -2020,32 +2365,37 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
       expenseId: string,
       itemId: string,
       itemUpdate: ItemUpdate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'groupId' is not null or undefined
       assertParamExists(
         "updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch",
         "groupId",
-        groupId,
+        groupId
       );
       // verify required parameter 'expenseId' is not null or undefined
       assertParamExists(
         "updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch",
         "expenseId",
-        expenseId,
+        expenseId
       );
       // verify required parameter 'itemId' is not null or undefined
-      assertParamExists("updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch", "itemId", itemId);
+      assertParamExists(
+        "updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch",
+        "itemId",
+        itemId
+      );
       // verify required parameter 'itemUpdate' is not null or undefined
       assertParamExists(
         "updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch",
         "itemUpdate",
-        itemUpdate,
+        itemUpdate
       );
-      const localVarPath = `/groups/{group_id}/expenses/{expense_id}/items/{item_id}`
-        .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
-        .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)))
-        .replace(`{${"item_id"}}`, encodeURIComponent(String(itemId)));
+      const localVarPath =
+        `/groups/{group_id}/expenses/{expense_id}/items/{item_id}`
+          .replace(`{${"group_id"}}`, encodeURIComponent(String(groupId)))
+          .replace(`{${"expense_id"}}`, encodeURIComponent(String(expenseId)))
+          .replace(`{${"item_id"}}`, encodeURIComponent(String(itemId)));
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2053,7 +2403,11 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "PATCH", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "PATCH",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -2061,13 +2415,18 @@ export const ItemsApiAxiosParamCreator = function (configuration?: Configuration
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
         ...options.headers,
       };
-      localVarRequestOptions.data = serializeDataIfNeeded(itemUpdate, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(
+        itemUpdate,
+        localVarRequestOptions,
+        configuration
+      );
 
       return {
         url: toPathString(localVarUrlObj),
@@ -2096,26 +2455,28 @@ export const ItemsApiFp = function (configuration?: Configuration) {
       groupId: string,
       expenseId: string,
       itemCreate: ItemCreate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ItemOut>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<ItemOut>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost(
           groupId,
           expenseId,
           itemCreate,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ItemsApi.addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ItemsApi.addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2131,26 +2492,28 @@ export const ItemsApiFp = function (configuration?: Configuration) {
       groupId: string,
       expenseId: string,
       itemId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(
           groupId,
           expenseId,
           itemId,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ItemsApi.deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ItemsApi.deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2168,27 +2531,29 @@ export const ItemsApiFp = function (configuration?: Configuration) {
       expenseId: string,
       itemId: string,
       itemUpdate: ItemUpdate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ItemOut>> {
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<ItemOut>
+    > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch(
           groupId,
           expenseId,
           itemId,
           itemUpdate,
-          options,
+          options
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ItemsApi.updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ItemsApi.updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -2200,7 +2565,7 @@ export const ItemsApiFp = function (configuration?: Configuration) {
 export const ItemsApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = ItemsApiFp(configuration);
   return {
@@ -2217,10 +2582,15 @@ export const ItemsApiFactory = function (
       groupId: string,
       expenseId: string,
       itemCreate: ItemCreate,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ItemOut> {
       return localVarFp
-        .addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost(groupId, expenseId, itemCreate, options)
+        .addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost(
+          groupId,
+          expenseId,
+          itemCreate,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -2236,10 +2606,15 @@ export const ItemsApiFactory = function (
       groupId: string,
       expenseId: string,
       itemId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<void> {
       return localVarFp
-        .deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(groupId, expenseId, itemId, options)
+        .deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(
+          groupId,
+          expenseId,
+          itemId,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
     /**
@@ -2257,7 +2632,7 @@ export const ItemsApiFactory = function (
       expenseId: string,
       itemId: string,
       itemUpdate: ItemUpdate,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ItemOut> {
       return localVarFp
         .updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch(
@@ -2265,7 +2640,7 @@ export const ItemsApiFactory = function (
           expenseId,
           itemId,
           itemUpdate,
-          options,
+          options
         )
         .then((request) => request(axios, basePath));
     },
@@ -2289,7 +2664,7 @@ export interface ItemsApiInterface {
     groupId: string,
     expenseId: string,
     itemCreate: ItemCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ItemOut>;
 
   /**
@@ -2305,7 +2680,7 @@ export interface ItemsApiInterface {
     groupId: string,
     expenseId: string,
     itemId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<void>;
 
   /**
@@ -2323,7 +2698,7 @@ export interface ItemsApiInterface {
     expenseId: string,
     itemId: string,
     itemUpdate: ItemUpdate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ItemOut>;
 }
 
@@ -2344,10 +2719,15 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
     groupId: string,
     expenseId: string,
     itemCreate: ItemCreate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ItemsApiFp(this.configuration)
-      .addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost(groupId, expenseId, itemCreate, options)
+      .addItemToExpenseGroupsGroupIdExpensesExpenseIdItemsPost(
+        groupId,
+        expenseId,
+        itemCreate,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 
@@ -2364,10 +2744,15 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
     groupId: string,
     expenseId: string,
     itemId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ItemsApiFp(this.configuration)
-      .deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(groupId, expenseId, itemId, options)
+      .deleteExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdDelete(
+        groupId,
+        expenseId,
+        itemId,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 
@@ -2386,7 +2771,7 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
     expenseId: string,
     itemId: string,
     itemUpdate: ItemUpdate,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return ItemsApiFp(this.configuration)
       .updateExpenseItemGroupsGroupIdExpensesExpenseIdItemsItemIdPatch(
@@ -2394,7 +2779,7 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
         expenseId,
         itemId,
         itemUpdate,
-        options,
+        options
       )
       .then((request) => request(this.axios, this.basePath));
   }
@@ -2403,7 +2788,9 @@ export class ItemsApi extends BaseAPI implements ItemsApiInterface {
 /**
  * ReceiptsApi - axios parameter creator
  */
-export const ReceiptsApiAxiosParamCreator = function (configuration?: Configuration) {
+export const ReceiptsApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -2414,10 +2801,14 @@ export const ReceiptsApiAxiosParamCreator = function (configuration?: Configurat
      */
     processReceiptUploadReceiptsProcessPost: async (
       file: File,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'file' is not null or undefined
-      assertParamExists("processReceiptUploadReceiptsProcessPost", "file", file);
+      assertParamExists(
+        "processReceiptUploadReceiptsProcessPost",
+        "file",
+        file
+      );
       const localVarPath = `/receipts/process`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -2426,10 +2817,16 @@ export const ReceiptsApiAxiosParamCreator = function (configuration?: Configurat
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
-      const localVarFormParams = new ((configuration && configuration.formDataCtor) || FormData)();
+      const localVarFormParams = new ((configuration &&
+        configuration.formDataCtor) ||
+        FormData)();
 
       if (file !== undefined) {
         localVarFormParams.append("file", file as any);
@@ -2438,13 +2835,69 @@ export const ReceiptsApiAxiosParamCreator = function (configuration?: Configurat
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
         ...options.headers,
       };
       localVarRequestOptions.data = localVarFormParams;
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     *
+     * @summary Translate receipt item labels to a target language
+     * @param {TranslateLabelsIn} translateLabelsIn
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    translateReceiptLabelsReceiptsTranslateLabelsPost: async (
+      translateLabelsIn: TranslateLabelsIn,
+      options: RawAxiosRequestConfig = {}
+    ): Promise<RequestArgs> => {
+      // verify required parameter 'translateLabelsIn' is not null or undefined
+      assertParamExists(
+        "translateReceiptLabelsReceiptsTranslateLabelsPost",
+        "translateLabelsIn",
+        translateLabelsIn
+      );
+      const localVarPath = `/receipts/translate-labels`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      localVarHeaderParameter["Content-Type"] = "application/json";
+      localVarHeaderParameter["Accept"] = "application/json";
+
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = {
+        ...localVarHeaderParameter,
+        ...headersFromBaseOptions,
+        ...options.headers,
+      };
+      localVarRequestOptions.data = serializeDataIfNeeded(
+        translateLabelsIn,
+        localVarRequestOptions,
+        configuration
+      );
 
       return {
         url: toPathString(localVarUrlObj),
@@ -2469,23 +2922,63 @@ export const ReceiptsApiFp = function (configuration?: Configuration) {
      */
     async processReceiptUploadReceiptsProcessPost(
       file: File,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ReceiptProcessedOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.processReceiptUploadReceiptsProcessPost(
-        file,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<ReceiptProcessedOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.processReceiptUploadReceiptsProcessPost(
+          file,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["ReceiptsApi.processReceiptUploadReceiptsProcessPost"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "ReceiptsApi.processReceiptUploadReceiptsProcessPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
+        )(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
+     *
+     * @summary Translate receipt item labels to a target language
+     * @param {TranslateLabelsIn} translateLabelsIn
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async translateReceiptLabelsReceiptsTranslateLabelsPost(
+      translateLabelsIn: TranslateLabelsIn,
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<TranslateLabelsOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.translateReceiptLabelsReceiptsTranslateLabelsPost(
+          translateLabelsIn,
+          options
+        );
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap[
+          "ReceiptsApi.translateReceiptLabelsReceiptsTranslateLabelsPost"
+        ]?.[localVarOperationServerIndex]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(
+          localVarAxiosArgs,
+          globalAxios,
+          BASE_PATH,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -2497,7 +2990,7 @@ export const ReceiptsApiFp = function (configuration?: Configuration) {
 export const ReceiptsApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = ReceiptsApiFp(configuration);
   return {
@@ -2510,10 +3003,28 @@ export const ReceiptsApiFactory = function (
      */
     processReceiptUploadReceiptsProcessPost(
       file: File,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<ReceiptProcessedOut> {
       return localVarFp
         .processReceiptUploadReceiptsProcessPost(file, options)
+        .then((request) => request(axios, basePath));
+    },
+    /**
+     *
+     * @summary Translate receipt item labels to a target language
+     * @param {TranslateLabelsIn} translateLabelsIn
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    translateReceiptLabelsReceiptsTranslateLabelsPost(
+      translateLabelsIn: TranslateLabelsIn,
+      options?: RawAxiosRequestConfig
+    ): AxiosPromise<TranslateLabelsOut> {
+      return localVarFp
+        .translateReceiptLabelsReceiptsTranslateLabelsPost(
+          translateLabelsIn,
+          options
+        )
         .then((request) => request(axios, basePath));
     },
   };
@@ -2532,8 +3043,20 @@ export interface ReceiptsApiInterface {
    */
   processReceiptUploadReceiptsProcessPost(
     file: File,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<ReceiptProcessedOut>;
+
+  /**
+   *
+   * @summary Translate receipt item labels to a target language
+   * @param {TranslateLabelsIn} translateLabelsIn
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  translateReceiptLabelsReceiptsTranslateLabelsPost(
+    translateLabelsIn: TranslateLabelsIn,
+    options?: RawAxiosRequestConfig
+  ): AxiosPromise<TranslateLabelsOut>;
 }
 
 /**
@@ -2547,9 +3070,31 @@ export class ReceiptsApi extends BaseAPI implements ReceiptsApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public processReceiptUploadReceiptsProcessPost(file: File, options?: RawAxiosRequestConfig) {
+  public processReceiptUploadReceiptsProcessPost(
+    file: File,
+    options?: RawAxiosRequestConfig
+  ) {
     return ReceiptsApiFp(this.configuration)
       .processReceiptUploadReceiptsProcessPost(file, options)
+      .then((request) => request(this.axios, this.basePath));
+  }
+
+  /**
+   *
+   * @summary Translate receipt item labels to a target language
+   * @param {TranslateLabelsIn} translateLabelsIn
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public translateReceiptLabelsReceiptsTranslateLabelsPost(
+    translateLabelsIn: TranslateLabelsIn,
+    options?: RawAxiosRequestConfig
+  ) {
+    return ReceiptsApiFp(this.configuration)
+      .translateReceiptLabelsReceiptsTranslateLabelsPost(
+        translateLabelsIn,
+        options
+      )
       .then((request) => request(this.axios, this.basePath));
   }
 }
@@ -2557,7 +3102,9 @@ export class ReceiptsApi extends BaseAPI implements ReceiptsApiInterface {
 /**
  * UsersApi - axios parameter creator
  */
-export const UsersApiAxiosParamCreator = function (configuration?: Configuration) {
+export const UsersApiAxiosParamCreator = function (
+  configuration?: Configuration
+) {
   return {
     /**
      *
@@ -2570,12 +3117,20 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
     addFriendUsersUserIdFriendsFriendIdPost: async (
       userId: string,
       friendId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'userId' is not null or undefined
-      assertParamExists("addFriendUsersUserIdFriendsFriendIdPost", "userId", userId);
+      assertParamExists(
+        "addFriendUsersUserIdFriendsFriendIdPost",
+        "userId",
+        userId
+      );
       // verify required parameter 'friendId' is not null or undefined
-      assertParamExists("addFriendUsersUserIdFriendsFriendIdPost", "friendId", friendId);
+      assertParamExists(
+        "addFriendUsersUserIdFriendsFriendIdPost",
+        "friendId",
+        friendId
+      );
       const localVarPath = `/users/{user_id}/friends/{friend_id}`
         .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
         .replace(`{${"friend_id"}}`, encodeURIComponent(String(friendId)));
@@ -2586,14 +3141,19 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -2614,7 +3174,7 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
      */
     createUserUsersPost: async (
       userCreate: UserCreate,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'userCreate' is not null or undefined
       assertParamExists("createUserUsersPost", "userCreate", userCreate);
@@ -2626,7 +3186,11 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "POST", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "POST",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
@@ -2634,13 +3198,18 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
         ...options.headers,
       };
-      localVarRequestOptions.data = serializeDataIfNeeded(userCreate, localVarRequestOptions, configuration);
+      localVarRequestOptions.data = serializeDataIfNeeded(
+        userCreate,
+        localVarRequestOptions,
+        configuration
+      );
 
       return {
         url: toPathString(localVarUrlObj),
@@ -2656,13 +3225,17 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
      */
     listUserFriendsUsersUserIdFriendsGet: async (
       userId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'userId' is not null or undefined
-      assertParamExists("listUserFriendsUsersUserIdFriendsGet", "userId", userId);
+      assertParamExists(
+        "listUserFriendsUsersUserIdFriendsGet",
+        "userId",
+        userId
+      );
       const localVarPath = `/users/{user_id}/friends`.replace(
         `{${"user_id"}}`,
-        encodeURIComponent(String(userId)),
+        encodeURIComponent(String(userId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -2671,14 +3244,19 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -2699,13 +3277,13 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
      */
     listUserGroupsUsersUserIdGroupsGet: async (
       userId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'userId' is not null or undefined
       assertParamExists("listUserGroupsUsersUserIdGroupsGet", "userId", userId);
       const localVarPath = `/users/{user_id}/groups`.replace(
         `{${"user_id"}}`,
-        encodeURIComponent(String(userId)),
+        encodeURIComponent(String(userId))
       );
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -2714,14 +3292,19 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "GET", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "GET",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -2744,12 +3327,20 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
     removeFriendUsersUserIdFriendsFriendIdDelete: async (
       userId: string,
       friendId: string,
-      options: RawAxiosRequestConfig = {},
+      options: RawAxiosRequestConfig = {}
     ): Promise<RequestArgs> => {
       // verify required parameter 'userId' is not null or undefined
-      assertParamExists("removeFriendUsersUserIdFriendsFriendIdDelete", "userId", userId);
+      assertParamExists(
+        "removeFriendUsersUserIdFriendsFriendIdDelete",
+        "userId",
+        userId
+      );
       // verify required parameter 'friendId' is not null or undefined
-      assertParamExists("removeFriendUsersUserIdFriendsFriendIdDelete", "friendId", friendId);
+      assertParamExists(
+        "removeFriendUsersUserIdFriendsFriendIdDelete",
+        "friendId",
+        friendId
+      );
       const localVarPath = `/users/{user_id}/friends/{friend_id}`
         .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
         .replace(`{${"friend_id"}}`, encodeURIComponent(String(friendId)));
@@ -2760,14 +3351,19 @@ export const UsersApiAxiosParamCreator = function (configuration?: Configuration
         baseOptions = configuration.baseOptions;
       }
 
-      const localVarRequestOptions = { method: "DELETE", ...baseOptions, ...options };
+      const localVarRequestOptions = {
+        method: "DELETE",
+        ...baseOptions,
+        ...options,
+      };
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
       localVarHeaderParameter["Accept"] = "application/json";
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
-      let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
       localVarRequestOptions.headers = {
         ...localVarHeaderParameter,
         ...headersFromBaseOptions,
@@ -2799,23 +3395,27 @@ export const UsersApiFp = function (configuration?: Configuration) {
     async addFriendUsersUserIdFriendsFriendIdPost(
       userId: string,
       friendId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.addFriendUsersUserIdFriendsFriendIdPost(
-        userId,
-        friendId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.addFriendUsersUserIdFriendsFriendIdPost(
+          userId,
+          friendId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["UsersApi.addFriendUsersUserIdFriendsFriendIdPost"]?.[localVarOperationServerIndex]
-          ?.url;
+        operationServerMap[
+          "UsersApi.addFriendUsersUserIdFriendsFriendIdPost"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2827,18 +3427,26 @@ export const UsersApiFp = function (configuration?: Configuration) {
      */
     async createUserUsersPost(
       userCreate: UserCreate,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.createUserUsersPost(userCreate, options);
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.createUserUsersPost(
+          userCreate,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["UsersApi.createUserUsersPost"]?.[localVarOperationServerIndex]?.url;
+        operationServerMap["UsersApi.createUserUsersPost"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2850,22 +3458,26 @@ export const UsersApiFp = function (configuration?: Configuration) {
      */
     async listUserFriendsUsersUserIdFriendsGet(
       userId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserOut>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.listUserFriendsUsersUserIdFriendsGet(
-        userId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserOut>>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.listUserFriendsUsersUserIdFriendsGet(
+          userId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["UsersApi.listUserFriendsUsersUserIdFriendsGet"]?.[localVarOperationServerIndex]
-          ?.url;
+        operationServerMap["UsersApi.listUserFriendsUsersUserIdFriendsGet"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2877,22 +3489,29 @@ export const UsersApiFp = function (configuration?: Configuration) {
      */
     async listUserGroupsUsersUserIdGroupsGet(
       userId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<GroupOut>>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.listUserGroupsUsersUserIdGroupsGet(
-        userId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string
+      ) => AxiosPromise<Array<GroupOut>>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.listUserGroupsUsersUserIdGroupsGet(
+          userId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["UsersApi.listUserGroupsUsersUserIdGroupsGet"]?.[localVarOperationServerIndex]
-          ?.url;
+        operationServerMap["UsersApi.listUserGroupsUsersUserIdGroupsGet"]?.[
+          localVarOperationServerIndex
+        ]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
@@ -2906,24 +3525,27 @@ export const UsersApiFp = function (configuration?: Configuration) {
     async removeFriendUsersUserIdFriendsFriendIdDelete(
       userId: string,
       friendId: string,
-      options?: RawAxiosRequestConfig,
-    ): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>> {
-      const localVarAxiosArgs = await localVarAxiosParamCreator.removeFriendUsersUserIdFriendsFriendIdDelete(
-        userId,
-        friendId,
-        options,
-      );
+      options?: RawAxiosRequestConfig
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserOut>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.removeFriendUsersUserIdFriendsFriendIdDelete(
+          userId,
+          friendId,
+          options
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
-        operationServerMap["UsersApi.removeFriendUsersUserIdFriendsFriendIdDelete"]?.[
-          localVarOperationServerIndex
-        ]?.url;
+        operationServerMap[
+          "UsersApi.removeFriendUsersUserIdFriendsFriendIdDelete"
+        ]?.[localVarOperationServerIndex]?.url;
       return (axios, basePath) =>
         createRequestFunction(
           localVarAxiosArgs,
           globalAxios,
           BASE_PATH,
-          configuration,
+          configuration
         )(axios, localVarOperationServerBasePath || basePath);
     },
   };
@@ -2935,7 +3557,7 @@ export const UsersApiFp = function (configuration?: Configuration) {
 export const UsersApiFactory = function (
   configuration?: Configuration,
   basePath?: string,
-  axios?: AxiosInstance,
+  axios?: AxiosInstance
 ) {
   const localVarFp = UsersApiFp(configuration);
   return {
@@ -2950,7 +3572,7 @@ export const UsersApiFactory = function (
     addFriendUsersUserIdFriendsFriendIdPost(
       userId: string,
       friendId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<UserOut> {
       return localVarFp
         .addFriendUsersUserIdFriendsFriendIdPost(userId, friendId, options)
@@ -2963,8 +3585,13 @@ export const UsersApiFactory = function (
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    createUserUsersPost(userCreate: UserCreate, options?: RawAxiosRequestConfig): AxiosPromise<UserOut> {
-      return localVarFp.createUserUsersPost(userCreate, options).then((request) => request(axios, basePath));
+    createUserUsersPost(
+      userCreate: UserCreate,
+      options?: RawAxiosRequestConfig
+    ): AxiosPromise<UserOut> {
+      return localVarFp
+        .createUserUsersPost(userCreate, options)
+        .then((request) => request(axios, basePath));
     },
     /**
      *
@@ -2975,7 +3602,7 @@ export const UsersApiFactory = function (
      */
     listUserFriendsUsersUserIdFriendsGet(
       userId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<Array<UserOut>> {
       return localVarFp
         .listUserFriendsUsersUserIdFriendsGet(userId, options)
@@ -2990,7 +3617,7 @@ export const UsersApiFactory = function (
      */
     listUserGroupsUsersUserIdGroupsGet(
       userId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<Array<GroupOut>> {
       return localVarFp
         .listUserGroupsUsersUserIdGroupsGet(userId, options)
@@ -3007,7 +3634,7 @@ export const UsersApiFactory = function (
     removeFriendUsersUserIdFriendsFriendIdDelete(
       userId: string,
       friendId: string,
-      options?: RawAxiosRequestConfig,
+      options?: RawAxiosRequestConfig
     ): AxiosPromise<UserOut> {
       return localVarFp
         .removeFriendUsersUserIdFriendsFriendIdDelete(userId, friendId, options)
@@ -3031,7 +3658,7 @@ export interface UsersApiInterface {
   addFriendUsersUserIdFriendsFriendIdPost(
     userId: string,
     friendId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<UserOut>;
 
   /**
@@ -3041,7 +3668,10 @@ export interface UsersApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  createUserUsersPost(userCreate: UserCreate, options?: RawAxiosRequestConfig): AxiosPromise<UserOut>;
+  createUserUsersPost(
+    userCreate: UserCreate,
+    options?: RawAxiosRequestConfig
+  ): AxiosPromise<UserOut>;
 
   /**
    *
@@ -3052,7 +3682,7 @@ export interface UsersApiInterface {
    */
   listUserFriendsUsersUserIdFriendsGet(
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<Array<UserOut>>;
 
   /**
@@ -3064,7 +3694,7 @@ export interface UsersApiInterface {
    */
   listUserGroupsUsersUserIdGroupsGet(
     userId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<Array<GroupOut>>;
 
   /**
@@ -3078,7 +3708,7 @@ export interface UsersApiInterface {
   removeFriendUsersUserIdFriendsFriendIdDelete(
     userId: string,
     friendId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ): AxiosPromise<UserOut>;
 }
 
@@ -3097,7 +3727,7 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
   public addFriendUsersUserIdFriendsFriendIdPost(
     userId: string,
     friendId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return UsersApiFp(this.configuration)
       .addFriendUsersUserIdFriendsFriendIdPost(userId, friendId, options)
@@ -3111,7 +3741,10 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public createUserUsersPost(userCreate: UserCreate, options?: RawAxiosRequestConfig) {
+  public createUserUsersPost(
+    userCreate: UserCreate,
+    options?: RawAxiosRequestConfig
+  ) {
     return UsersApiFp(this.configuration)
       .createUserUsersPost(userCreate, options)
       .then((request) => request(this.axios, this.basePath));
@@ -3124,7 +3757,10 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public listUserFriendsUsersUserIdFriendsGet(userId: string, options?: RawAxiosRequestConfig) {
+  public listUserFriendsUsersUserIdFriendsGet(
+    userId: string,
+    options?: RawAxiosRequestConfig
+  ) {
     return UsersApiFp(this.configuration)
       .listUserFriendsUsersUserIdFriendsGet(userId, options)
       .then((request) => request(this.axios, this.basePath));
@@ -3137,7 +3773,10 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public listUserGroupsUsersUserIdGroupsGet(userId: string, options?: RawAxiosRequestConfig) {
+  public listUserGroupsUsersUserIdGroupsGet(
+    userId: string,
+    options?: RawAxiosRequestConfig
+  ) {
     return UsersApiFp(this.configuration)
       .listUserGroupsUsersUserIdGroupsGet(userId, options)
       .then((request) => request(this.axios, this.basePath));
@@ -3154,7 +3793,7 @@ export class UsersApi extends BaseAPI implements UsersApiInterface {
   public removeFriendUsersUserIdFriendsFriendIdDelete(
     userId: string,
     friendId: string,
-    options?: RawAxiosRequestConfig,
+    options?: RawAxiosRequestConfig
   ) {
     return UsersApiFp(this.configuration)
       .removeFriendUsersUserIdFriendsFriendIdDelete(userId, friendId, options)

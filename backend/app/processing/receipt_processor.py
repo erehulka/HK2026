@@ -88,6 +88,69 @@ class ReceiptData:
         d["languages"] = self.languages
         return d
 
+    def interpret_labels(self) -> None:
+        """
+        Rewrite item labels in-place using the LLM.
+        This version assumes the ReceiptData instance is well-formed.
+        It updates self.items[*].name directly and does not return anything.
+        """
+
+        client = Mistral(api_key=_require_mistral_api_key())
+        items = self.items
+
+        # Group by language
+        by_language: dict[str, list[int]] = {}
+        for idx, item in enumerate(items):
+            by_language.setdefault(item.language, []).append(idx)
+
+        for lang, indices in by_language.items():
+            label_list = "\n".join(f'{idx}. "{items[idx].name}"' for idx in indices)
+            lang_desc = (
+                f"language tag '{lang}'" if lang != "und" else "an unidentified language"
+            )
+            context = (
+                f'The following labels are in {lang_desc}.'
+            )
+
+            prompt = f"""
+    {context}
+
+    Below is a numbered list of item labels from a receipt. Many are abbreviated,
+    use brand shorthand, or contain store codes.
+
+    Your task: for each label, produce a plain-language rewrite ONLY if the label
+    is clearly truncated or abbreviated.
+
+    RULES:
+    - If the label is already a complete, normal phrase, return it EXACTLY as-is.
+    - DO NOT add explanations, descriptions, parentheticals, or clarifications.
+    - DO NOT guess ingredients, brands, or categories.
+    - DO NOT add anything not explicitly present in the original text.
+    - Only expand abbreviations or obvious truncations.
+    - If unsure, return the original label unchanged.
+
+    Labels:
+    {label_list}
+
+    Return a JSON array with exactly {len(indices)} objects:
+    [
+    {{"index": <original_index>, "interpreted_name": "...", "interpreted": true}},
+    ...
+    ]
+    """
+
+            raw = _call_mistral_text(client, prompt)
+            cleaned = _strip_fences(raw)
+            start, end = cleaned.find("["), cleaned.rfind("]") + 1
+            entries = json.loads(cleaned[start:end])
+
+            # Update items in-place
+            for e in entries:
+                idx = int(e["index"])
+                new_name = str(e["interpreted_name"])
+                items[idx].name = new_name
+
+
 
 @dataclass
 class InterpretedItem:
@@ -106,127 +169,27 @@ class TranslatedItem:
     index: int
 
 
-@dataclass
-class ProcessResult:
-    ok: bool
-    reason: str = ""
-    data: Optional[ReceiptData] = None
-    json_path: Optional[Path] = None
+def translate_receipt_item_labels(
+    items: list[LineItem],
+    target_language: str,
+) -> list[TranslatedItem]:
+    """
+    Translate receipt line labels to ``target_language`` using Mistral.
 
-    # ── label interpretation ──────────────────────────────────────────────────
+    Only ``name`` and ``language`` on each ``LineItem`` are used for prompting;
+    other fields may be placeholders when calling from HTTP without full receipt data.
+    """
+    if not items:
+        return []
 
-    def interpret_labels(self) -> list[InterpretedItem]:
-        if not self.ok or self.data is None:
-            raise RuntimeError("Cannot interpret labels on a failed ProcessResult.")
+    client = Mistral(api_key=_require_mistral_api_key())
+    source_names = [item.name for item in items]
 
-        client = Mistral(api_key=_require_mistral_api_key())
-        items = self.data.items
-
-        by_language: dict[str, list[int]] = {}
-        for idx, item in enumerate(items):
-            by_language.setdefault(item.language, []).append(idx)
-
-        results: dict[int, InterpretedItem] = {}
-
-        for lang, indices in by_language.items():
-            label_list = "\n".join(f'{idx}. "{items[idx].name}"' for idx in indices)
-            lang_desc = (
-                f"language tag '{lang}'" if lang != "und" else "an unidentified language"
-            )
-            context = (
-                f'Merchant: "{self.data.merchant_name}". '
-                f'The following labels are in {lang_desc}.'
-            )
-            prompt = f"""
-{context}
-
-Below is a numbered list of item labels from a receipt. Many are abbreviated,
-use brand shorthand, or contain store codes.
-
-Your task: for each label, produce a plain-language rewrite ONLY if the label
-is clearly truncated or abbreviated.
-
-RULES:
-- If the label is already a complete, normal phrase, return it EXACTLY as-is, character by character.
-- DO NOT add explanations, descriptions, parentheticals, or clarifications.
-- DO NOT guess ingredients, brands, or categories.
-- DO NOT add anything that was not explicitly present in the original text.
-- Only expand abbreviations or obvious truncations (e.g., "GRL STK W SLD" → "Grilled steak with salad").
-- If unsure, return the original label unchanged.
-
-If you genuinely cannot identify what the item is (e.g. a pure numeric PLU code,
-an internal store SKU, or too ambiguous), set interpreted to false and copy the
-original label unchanged into interpreted_name.
-
-Labels:
-{label_list}
-
-Return a JSON array with exactly {len(indices)} objects, preserving the original
-index numbers (do not renumber them):
-[
-  {{"index": <original_index>, "interpreted_name": "...", "interpreted": true}},
-  ...
-]
-"""
-            raw = _call_mistral_text(client, prompt)
-            cleaned = _strip_fences(raw)
-            start, end = cleaned.find("["), cleaned.rfind("]") + 1
-            if start == -1 or end == 0:
-                raise ValueError(
-                    f"No JSON array in interpret_labels response:\n{raw}"
-                )
-            entries = json.loads(cleaned[start:end])
-
-            for e in entries:
-                idx = int(e["index"])
-                results[idx] = InterpretedItem(
-                    original_name=items[idx].name,
-                    interpreted_name=str(e["interpreted_name"]),
-                    interpreted=bool(e.get("interpreted", True)),
-                    language=items[idx].language,
-                    index=idx,
-                )
-
-        return [
-            results.get(
-                i,
-                InterpretedItem(
-                    original_name=items[i].name,
-                    interpreted_name=items[i].name,
-                    interpreted=False,
-                    language=items[i].language,
-                    index=i,
-                ),
-            )
-            for i in range(len(items))
-        ]
-
-    # ── translation ───────────────────────────────────────────────────────────
-
-    def translate(
-        self,
-        target_language: str,
-        interpreted: Optional[list[InterpretedItem]] = None,
-    ) -> list[TranslatedItem]:
-        if not self.ok or self.data is None:
-            raise RuntimeError("Cannot translate on a failed ProcessResult.")
-
-        client = Mistral(api_key=_require_mistral_api_key())
-        items = self.data.items
-
-        if interpreted is not None:
-            interp_map = {ii.index: ii.interpreted_name for ii in interpreted}
-            source_names = [
-                interp_map.get(i, item.name) for i, item in enumerate(items)
-            ]
-        else:
-            source_names = [item.name for item in items]
-
-        label_list = "\n".join(
-            f'{i}. "{name}" [source language: {items[i].language}]'
-            for i, name in enumerate(source_names)
-        )
-        prompt = f"""
+    label_list = "\n".join(
+        f'{i}. "{name}" [source language: {items[i].language}]'
+        for i, name in enumerate(source_names)
+    )
+    prompt = f"""
 Translate each of the following receipt item labels into {target_language}.
 Each label is annotated with its source language as a hint.
 Preserve quantity descriptors. Do not translate brand names — keep them as-is
@@ -241,22 +204,38 @@ Return a JSON array with exactly {len(items)} objects, in the same order:
   ...
 ]
 """
-        raw = _call_mistral_text(client, prompt)
-        cleaned = _strip_fences(raw)
-        start, end = cleaned.find("["), cleaned.rfind("]") + 1
-        if start == -1 or end == 0:
-            raise ValueError(f"No JSON array in translate response:\n{raw}")
-        entries = json.loads(cleaned[start:end])
+    raw = _call_mistral_text(client, prompt)
+    cleaned = _strip_fences(raw)
+    start, end = cleaned.find("["), cleaned.rfind("]") + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No JSON array in translate response:\n{raw}")
+    entries = json.loads(cleaned[start:end])
 
-        return [
-            TranslatedItem(
-                original_name=source_names[e["index"]],
-                translated_name=str(e["translated_name"]),
-                source_language=items[e["index"]].language,
-                index=int(e["index"]),
-            )
-            for e in entries
-        ]
+    return [
+        TranslatedItem(
+            original_name=source_names[e["index"]],
+            translated_name=str(e["translated_name"]),
+            source_language=items[e["index"]].language,
+            index=int(e["index"]),
+        )
+        for e in entries
+    ]
+
+
+@dataclass
+class ProcessResult:
+    ok: bool
+    reason: str = ""
+    data: Optional[ReceiptData] = None
+    json_path: Optional[Path] = None
+
+    # ── translation ───────────────────────────────────────────────────────────
+
+    def translate(self, target_language: str) -> list[TranslatedItem]:
+        if not self.ok or self.data is None:
+            raise RuntimeError("Cannot translate on a failed ProcessResult.")
+
+        return translate_receipt_item_labels(self.data.items, target_language)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -953,6 +932,7 @@ def process_receipt(
     output_dir: str | Path = ".",
     *,
     save_json: bool = True,
+    auto_interpret: bool = True,
 ) -> ProcessResult:
     image_path = Path(image_path)
     output_dir = Path(output_dir)
@@ -1009,7 +989,11 @@ def process_receipt(
     # 5) Verify totals
     receipt_data.ocr_sum_verified = _verify_total(receipt_data)
 
-    # 6) Save JSON (optional)
+    # 6) Interpret labels if told to do so
+    if auto_interpret:
+        receipt_data.interpret_labels()
+
+    # 7) Save JSON (optional)
     if save_json:
         try:
             json_path = _step3_save(receipt_data, image_path, output_dir)
@@ -1054,17 +1038,8 @@ if __name__ == "__main__":
             f"({item.unit_price}) x {item.quantity} ---> {item.total_price}"
         )
 
-    print("\n── Interpreting labels …")
-    interpreted = result.interpret_labels()
-    for ii in interpreted:
-        flag = "" if ii.interpreted else "  ⚑ unrecognised"
-        print(
-            f"  [{ii.index}] ({ii.language}) "
-            f"{ii.original_name!r:30s} → {ii.interpreted_name!r}{flag}"
-        )
-
     print("\n── Translating to English …")
-    translated = result.translate("English", interpreted=interpreted)
+    translated = result.translate("English")
     for ti in translated:
         print(
             f"  [{ti.index}] [{ti.source_language}] "
