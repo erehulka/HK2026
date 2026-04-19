@@ -159,9 +159,9 @@ export default function AddPaymentScreen() {
     !membersQuery.isPending &&
     (!isEditing || !existingExpenseQuery.isPending);
 
-  const goToGroupsView = () => router.replace("/");
+  const goToGroupView = () => router.replace(`/group/${groupId}`);
   const handleBackNavigation = () => {
-    goToGroupsView();
+    goToGroupView();
   };
 
   useEffect(() => {
@@ -401,12 +401,12 @@ export default function AddPaymentScreen() {
             sourceReceiptId
           );
           if (remaining === 0) {
-            goToGroupsView();
+            goToGroupView();
             return;
           }
         }
       }
-      goToGroupsView();
+      goToGroupView();
     },
   });
   const deleteExpenseMutation = useMutation({
@@ -428,7 +428,7 @@ export default function AddPaymentScreen() {
           queryKey: ["groups", groupId, "expenses", paymentId],
         });
       }
-      goToGroupsView();
+      goToGroupView();
     },
   });
 
