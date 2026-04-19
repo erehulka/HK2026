@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback } from "react";
 import {
   ActivityIndicator,
@@ -52,6 +52,15 @@ function formatExpenseDate(isoDate: string) {
   });
 }
 
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -87,10 +96,10 @@ export default function GroupDetailScreen() {
 
   if (groupQuery.isPending) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg">
+      <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="flex-1 items-center justify-center gap-2">
-          <ActivityIndicator color="#d7e6ff" />
-          <Text className="text-app-muted">Loading group…</Text>
+          <ActivityIndicator color="#38bdf8" />
+          <Text className="text-white/55">Loading group...</Text>
         </View>
       </SafeAreaView>
     );
@@ -102,17 +111,15 @@ export default function GroupDetailScreen() {
         ? groupQuery.error.message
         : "Group not found";
     return (
-      <SafeAreaView className="flex-1 bg-app-bg">
+      <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="flex-1 px-5 py-4 gap-3">
-          <Text className="text-3xl font-bold text-app-text">
-            Group not found
-          </Text>
-          <Text className="text-app-muted">{message}</Text>
+          <Text className="text-3xl font-bold text-white">Group not found</Text>
+          <Text className="text-white/55">{message}</Text>
           <Pressable
             onPress={() => groupQuery.refetch()}
-            className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 self-start"
+            className="rounded-[12px] border border-white/10 bg-[#232831] py-[10px] px-3 self-start"
           >
-            <Text className="text-app-text font-semibold">Retry</Text>
+            <Text className="text-white font-semibold">Retry</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -138,85 +145,91 @@ export default function GroupDetailScreen() {
     : null;
   const balanceColor =
     userBalanceEur === null || userBalanceEur === 0
-      ? "text-app-text"
+      ? "text-white"
       : userBalanceEur > 0
-      ? "text-app-success"
-      : "text-app-danger";
+      ? "text-emerald-400"
+      : "text-rose-400";
   const balanceSign = userBalanceEur && userBalanceEur > 0 ? "+" : "";
 
   return (
-    <SafeAreaView className="flex-1 bg-app-bg">
-      <ScrollView contentContainerClassName="px-5 pt-16 pb-6 gap-5">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-[28px] font-bold text-app-text flex-1 pr-3">
-            {group.name}
-          </Text>
-          <View className="flex-row items-center gap-2">
-            <Pressable
-              onPress={() => router.push(`/group/${id}/members`)}
-              className="h-10 px-3 rounded-full bg-app-surface border border-app-border items-center justify-center"
-            >
-              {membersQuery.isPending ? (
-                <ActivityIndicator color="#d7e6ff" />
-              ) : (
-                <Text className="text-app-text font-semibold text-[13px]">
-                  {memberCount} {memberCount === 1 ? "user" : "users"}
-                </Text>
-              )}
-            </Pressable>
-            <Pressable className="w-10 h-10 rounded-full bg-app-surface border border-app-border items-center justify-center">
-              <Ionicons name="settings-outline" size={20} color="#d7e6ff" />
-            </Pressable>
-          </View>
-        </View>
-
-        {group.description ? (
-          <Text className="text-sm text-app-muted">{group.description}</Text>
-        ) : null}
-
-        <View className="flex-row gap-3 items-stretch">
-          <View className="flex-1 bg-app-surface border border-app-border rounded-xl p-4 gap-[6px]">
-            <Text className="text-[13px] text-app-muted">Your balance</Text>
-            {debtsQuery.isPending ? (
-              <ActivityIndicator color="#d7e6ff" />
-            ) : debtsQuery.isError ? (
-              <Text className="text-[13px] text-app-danger">
-                Couldn’t load balance
-              </Text>
-            ) : userBalanceEur === null ? (
-              <Text className="text-[28px] font-bold text-app-text">—</Text>
+    <SafeAreaView className="flex-1 bg-[#0f1115]">
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4 pb-8 gap-5"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="mt-2 flex-row items-center justify-between">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+          >
+            <Ionicons name="chevron-back" size={26} color="#2b6fff" />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push(`/group/${id}/members`)}
+            className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2"
+          >
+            {membersQuery.isPending ? (
+              <ActivityIndicator color="#38bdf8" />
             ) : (
-              <Text className={`text-[28px] font-bold ${balanceColor}`}>
-                {balanceSign}
-                {userBalanceEur.toFixed(2)} €
+              <Text className="text-sm font-semibold text-sky-400">
+                {memberCount} {memberCount === 1 ? "user" : "users"}
               </Text>
             )}
+          </Pressable>
+        </View>
+
+        <View className="gap-1">
+          <Text className="text-4xl font-bold text-white">{group.name}</Text>
+          {group.description ? (
+            <Text className="text-sm text-white/45">{group.description}</Text>
+          ) : null}
+        </View>
+
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <Text className="text-lg font-bold text-white">Overview</Text>
+          <View className="rounded-[14px] border border-white/5 bg-[#2a3038] p-4 gap-1">
+            <Text className="text-[12px] uppercase tracking-[0.13em] text-white/45">
+              Your balance
+            </Text>
+            {debtsQuery.isPending ? (
+              <ActivityIndicator color="#38bdf8" />
+            ) : debtsQuery.isError ? (
+              <Text className="text-[13px] text-rose-400">Couldn’t load balance</Text>
+            ) : userBalanceEur === null ? (
+              <Text className="text-[34px] font-bold text-white">—</Text>
+            ) : (
+              <Text className={`text-[34px] font-bold ${balanceColor}`}>
+                {balanceSign}
+                {formatMoney(userBalanceEur)}
+              </Text>
+            )}
+            <Text className="text-xs text-white/45">Across this group</Text>
           </View>
-          <Pressable className="w-[120px] rounded-xl p-4 items-center justify-center bg-app-primary">
-            <Ionicons name="card-outline" size={22} color="#f4f7ff" />
-            <Text className="text-app-text font-semibold mt-2">Group Card</Text>
-          </Pressable>
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => router.push(`/group/${id}/add-payment`)}
+              className="flex-1 rounded-[12px] py-3 items-center bg-[#2b6fff]"
+            >
+              <Text className="text-white font-semibold">Quick payment</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push(`/group/${id}/add-receipt`)}
+              className="flex-1 rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
+            >
+              <Text className="text-white font-semibold">Add a receipt</Text>
+            </Pressable>
+          </View>
         </View>
 
-        <View className="flex-row gap-3">
-          <Pressable
-            onPress={() => router.push(`/group/${id}/add-payment`)}
-            className="flex-1 rounded-[10px] py-3 items-center bg-app-primary"
-          >
-            <Text className="text-app-text font-semibold">Quick payment</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push(`/group/${id}/add-receipt`)}
-            className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
-          >
-            <Text className="text-app-text font-semibold">Add a receipt</Text>
-          </Pressable>
-        </View>
-
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-lg font-semibold text-app-text">Expenses</Text>
+        <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-2xl font-bold text-white">Expenses</Text>
+            <Text className="text-sm text-sky-400">{expenses.length} total</Text>
+          </View>
           {expenses.length === 0 ? (
-            <Text className="italic text-app-muted">No expenses yet.</Text>
+            <Text className="italic text-white/45">No expenses yet.</Text>
           ) : (
             expenses.map((expense) => {
               const payerName =
@@ -236,10 +249,10 @@ export default function GroupDetailScreen() {
 
               const userEffectColor =
                 userEffectEur > 0
-                  ? "text-app-success"
+                  ? "text-emerald-400"
                   : userEffectEur < 0
-                  ? "text-app-danger"
-                  : "text-app-muted";
+                  ? "text-rose-400"
+                  : "text-white/50";
               const userEffectSign = userEffectEur > 0 ? "+" : "";
 
               return (
@@ -250,26 +263,26 @@ export default function GroupDetailScreen() {
                       `/group/${id}/add-payment?paymentId=${expense.id}`
                     )
                   }
-                  className="flex-row items-center justify-between bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3"
+                  className="flex-row items-center justify-between rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
                 >
                   <View className="flex-1 pr-2">
-                    <Text className="text-[15px] font-semibold text-app-text">
+                    <Text className="text-[16px] font-semibold text-white">
                       {expense.description}
                     </Text>
-                    <Text className="text-xs text-app-muted mt-[2px]">
-                      {payerName} paid {totalEur.toFixed(2)}
+                    <Text className="mt-1 text-xs text-white/45">
+                      {payerName} paid {formatMoney(totalEur)}
                     </Text>
-                    <Text className="text-[11px] text-app-muted mt-[2px]">
+                    <Text className="mt-[2px] text-[11px] text-white/40">
                       {formatExpenseDate(expense.created_at)}
                     </Text>
                   </View>
                   {isInvolved ? (
                     <Text className={`text-base font-bold ${userEffectColor}`}>
                       {userEffectSign}
-                      {userEffectEur.toFixed(2)}
+                      {formatMoney(userEffectEur)}
                     </Text>
                   ) : (
-                    <Text className="text-xs text-app-muted">Not involved</Text>
+                    <Text className="text-xs text-white/45">Not involved</Text>
                   )}
                 </Pressable>
               );
