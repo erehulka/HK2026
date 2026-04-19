@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -125,10 +125,10 @@ export default function GroupMembersScreen() {
 
   if (groupQuery.isPending || membersQuery.isPending) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg">
+      <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="flex-1 items-center justify-center gap-2">
-          <ActivityIndicator color="#d7e6ff" />
-          <Text className="text-app-muted">Loading users…</Text>
+          <ActivityIndicator color="#38bdf8" />
+          <Text className="text-white/55">Loading users...</Text>
         </View>
       </SafeAreaView>
     );
@@ -136,41 +136,60 @@ export default function GroupMembersScreen() {
 
   if (!groupQuery.data) {
     return (
-      <SafeAreaView className="flex-1 bg-app-bg">
+      <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="flex-1 px-5 pt-16">
-          <Text className="text-3xl font-bold text-app-text">Group not found</Text>
+          <Text className="text-3xl font-bold text-white">Group not found</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-app-bg">
-      <ScrollView contentContainerClassName="px-5 pt-16 pb-6 gap-5">
-        <Text className="text-3xl font-bold text-app-text">{groupQuery.data.name}</Text>
+    <SafeAreaView className="flex-1 bg-[#0f1115]">
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="px-5 pt-4 pb-8 gap-5"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="mt-2 flex-row items-center justify-between">
+          <Pressable
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+          >
+            <Ionicons name="chevron-back" size={26} color="#2b6fff" />
+          </Pressable>
+          <View className="h-10 w-10" />
+        </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">
-            Active users ({members.length})
-          </Text>
+        <View className="gap-1">
+          <Text className="text-4xl font-bold text-white">{groupQuery.data.name}</Text>
+          <Text className="text-sm text-white/45">Members and balances</Text>
+        </View>
+
+        <View className="gap-3 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-lg font-bold text-white">Active users</Text>
+            <Text className="text-sm text-sky-400">{members.length} total</Text>
+          </View>
           {members.map((member) => (
             <View
               key={member.id}
-              className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 flex-row items-center justify-between"
+              className="flex-row items-center justify-between rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
             >
               <View className="flex-row items-center gap-2">
-                <Text className="text-[15px] text-app-text">{member.display_name}</Text>
+                <Text className="text-[16px] text-white">{member.display_name}</Text>
                 {member.id === CURRENT_USER_BACKEND_ID ? (
-                  <Text className="text-[11px] text-app-muted">(you)</Text>
+                  <Text className="text-[11px] text-white/45">(you)</Text>
                 ) : null}
               </View>
               <Text
                 className={`text-[14px] font-semibold ${
                   (balancesByUserId.get(member.id) ?? 0) > 0
-                    ? "text-app-success"
+                    ? "text-emerald-400"
                     : (balancesByUserId.get(member.id) ?? 0) < 0
-                    ? "text-app-danger"
-                    : "text-app-muted"
+                    ? "text-rose-400"
+                    : "text-white/50"
                 }`}
               >
                 {debtsQuery.isPending
@@ -185,13 +204,13 @@ export default function GroupMembersScreen() {
               setIsAddUsersModalOpen(true);
             }}
             disabled={addMembersMutation.isPending}
-            className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 flex-row items-center justify-between"
+            className="flex-row items-center justify-between rounded-[14px] border border-white/5 bg-[#2a3038] px-4 py-3"
           >
-            <Text className="text-[15px] text-app-text">Add new user</Text>
-            <Ionicons name="add" size={18} color="#d7e6ff" />
+            <Text className="text-[15px] text-white">Add new user</Text>
+            <Ionicons name="add" size={18} color="#38bdf8" />
           </Pressable>
           {addMembersMutation.isError ? (
-            <Text className="text-app-danger">
+            <Text className="text-rose-400">
               Could not add user
               {addMembersMutation.error instanceof Error
                 ? `: ${addMembersMutation.error.message}`
@@ -201,50 +220,36 @@ export default function GroupMembersScreen() {
           ) : null}
         </View>
 
-        <View className="bg-app-surface border border-app-border rounded-xl p-[14px] gap-[10px]">
-          <Text className="text-base font-semibold text-app-text">Leave group</Text>
-          {currentUserBalanceCents === 0 ? (
-            <Text className="text-app-muted">
-              You are settled up. You can safely leave this group.
-            </Text>
-          ) : (
-            <Text className="text-app-muted">
-              Settle up first. Your current balance is{" "}
-              <Text className="font-semibold">{formatCents(currentUserBalanceCents)}</Text>.
-            </Text>
-          )}
-          {leaveGroupMutation.isError ? (
-            <Text className="text-app-danger">
-              Could not leave group
-              {leaveGroupMutation.error instanceof Error
-                ? `: ${leaveGroupMutation.error.message}`
-                : ""}
-              .
-            </Text>
-          ) : null}
-        </View>
-
         <View className="flex-row gap-3">
           <Pressable
             onPress={() => router.back()}
-            className="flex-1 rounded-[10px] py-3 items-center bg-app-cancel"
+            className="flex-1 rounded-[12px] border border-white/10 bg-[#232831] py-3 items-center"
           >
-            <Text className="text-app-text font-semibold">Back</Text>
+            <Text className="font-semibold text-white">Back</Text>
           </Pressable>
           <Pressable
             onPress={() => leaveGroupMutation.mutate()}
             disabled={addMembersMutation.isPending || leaveGroupMutation.isPending || !canLeaveGroup}
-            className={`flex-1 rounded-[10px] py-3 items-center ${
-              canLeaveGroup ? "bg-app-primary" : "bg-app-primary-dim"
+            className={`flex-1 rounded-[12px] py-3 items-center ${
+              canLeaveGroup ? "bg-rose-600" : "bg-rose-600/40"
             }`}
           >
             {addMembersMutation.isPending || leaveGroupMutation.isPending ? (
-              <ActivityIndicator color="#f4f7ff" />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-app-text font-semibold">Leave group</Text>
+              <Text className="font-semibold text-white">Leave group</Text>
             )}
           </Pressable>
         </View>
+        {leaveGroupMutation.isError ? (
+          <Text className="text-rose-400">
+            Could not leave group
+            {leaveGroupMutation.error instanceof Error
+              ? `: ${leaveGroupMutation.error.message}`
+              : ""}
+            .
+          </Text>
+        ) : null}
       </ScrollView>
 
       <Modal
@@ -254,11 +259,11 @@ export default function GroupMembersScreen() {
         onRequestClose={() => setIsAddUsersModalOpen(false)}
       >
         <View className="flex-1 bg-black/50 items-center justify-center px-5">
-          <View className="w-full max-w-[360px] bg-app-surface border border-app-border rounded-2xl p-4 gap-3 max-h-[70%]">
+          <View className="w-full max-w-[360px] max-h-[70%] rounded-2xl border border-white/10 bg-[#171a20] p-4 gap-3">
             <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-semibold text-app-text">Add your friends</Text>
+              <Text className="text-lg font-semibold text-white">Add your friends</Text>
               <Pressable onPress={() => setIsAddUsersModalOpen(false)}>
-                <Ionicons name="close" size={20} color="#d7e6ff" />
+                <Ionicons name="close" size={20} color="#dbe4f5" />
               </Pressable>
             </View>
             <Pressable
@@ -267,19 +272,19 @@ export default function GroupMembersScreen() {
                   message: `Join my Split group: ${inviteLink}`,
                 });
               }}
-              className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 flex-row items-center justify-center gap-2"
+              className="flex-row items-center justify-center gap-2 rounded-[12px] border border-white/10 bg-[#232831] py-[10px] px-3"
             >
-              <Ionicons name="share-outline" size={16} color="#d7e6ff" />
-              <Text className="text-app-text font-semibold">Share invite link</Text>
+              <Ionicons name="share-outline" size={16} color="#dbe4f5" />
+              <Text className="font-semibold text-white">Share invite link</Text>
             </Pressable>
 
             {friendsQuery.isFetching ? (
               <View className="flex-row items-center gap-2 py-2">
-                <ActivityIndicator color="#d7e6ff" />
-                <Text className="text-app-muted">Loading your friends…</Text>
+                <ActivityIndicator color="#38bdf8" />
+                <Text className="text-white/55">Loading your friends...</Text>
               </View>
             ) : availableFriends.length === 0 ? (
-              <Text className="text-app-muted italic">
+              <Text className="italic text-white/55">
                 All your friends are already in this group.
               </Text>
             ) : (
@@ -289,10 +294,10 @@ export default function GroupMembersScreen() {
                     key={friend.id}
                     onPress={() => addMembersMutation.mutate(friend.id)}
                     disabled={addMembersMutation.isPending}
-                    className="bg-app-card border border-app-border-soft rounded-[10px] py-[10px] px-3 flex-row items-center justify-between"
+                    className="flex-row items-center justify-between rounded-[12px] border border-white/10 bg-[#232831] py-[10px] px-3"
                   >
-                    <Text className="text-[15px] text-app-text">{friend.name}</Text>
-                    <Ionicons name="add-circle-outline" size={18} color="#d7e6ff" />
+                    <Text className="text-[15px] text-white">{friend.name}</Text>
+                    <Ionicons name="add-circle-outline" size={18} color="#38bdf8" />
                   </Pressable>
                 ))}
               </ScrollView>
