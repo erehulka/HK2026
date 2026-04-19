@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
