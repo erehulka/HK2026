@@ -39,3 +39,42 @@ class ReceiptProcessedOut(BaseModel):
     languages: list[str] = Field(
         description="Distinct BCP-47 tags from line items (excludes und)",
     )
+
+
+class TranslateLabelLineIn(BaseModel):
+    """One receipt line label plus its detected language (for translation only)."""
+
+    name: str = Field(description="Item label text to translate")
+    language: str = Field(
+        default="und",
+        description="BCP-47 language tag for this label (hint for the model)",
+    )
+
+
+class TranslateLabelsIn(BaseModel):
+    """Input for ``POST /receipts/translate-labels``."""
+
+    target_language: str = Field(
+        description='Goal language for labels (e.g. "Slovak", "English")',
+    )
+    items: list[TranslateLabelLineIn] = Field(
+        min_length=1,
+        description="Ordered line labels; order defines indices 0..n-1",
+    )
+
+
+class TranslatedLabelOut(BaseModel):
+    """One translated line label."""
+
+    index: int
+    original_name: str = Field(
+        description="Source string that was translated (the input ``name`` for that line)",
+    )
+    translated_name: str
+    source_language: str = Field(description="BCP-47 tag from the corresponding input line")
+
+
+class TranslateLabelsOut(BaseModel):
+    """Response from ``POST /receipts/translate-labels``."""
+
+    labels: list[TranslatedLabelOut]

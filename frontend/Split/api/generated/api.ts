@@ -308,6 +308,53 @@ export interface SimplifiedGroupDebtsOut {
     'matrix': Array<Array<number>>;
 }
 /**
+ * One receipt line label plus its detected language (for translation only).
+ */
+export interface TranslateLabelLineIn {
+    /**
+     * Item label text to translate
+     */
+    'name': string;
+    /**
+     * BCP-47 language tag for this label (hint for the model)
+     */
+    'language'?: string;
+}
+/**
+ * Input for ``POST /receipts/translate-labels``.
+ */
+export interface TranslateLabelsIn {
+    /**
+     * Goal language for labels (e.g. \"Slovak\", \"English\")
+     */
+    'target_language': string;
+    /**
+     * Ordered line labels; order defines indices 0..n-1
+     */
+    'items': Array<TranslateLabelLineIn>;
+}
+/**
+ * Response from ``POST /receipts/translate-labels``.
+ */
+export interface TranslateLabelsOut {
+    'labels': Array<TranslatedLabelOut>;
+}
+/**
+ * One translated line label.
+ */
+export interface TranslatedLabelOut {
+    'index': number;
+    /**
+     * Source string that was translated (the input ``name`` for that line)
+     */
+    'original_name': string;
+    'translated_name': string;
+    /**
+     * BCP-47 tag from the corresponding input line
+     */
+    'source_language': string;
+}
+/**
  * Validated body for creating a user.
  */
 export interface UserCreate {
@@ -1810,6 +1857,41 @@ export const ReceiptsApiAxiosParamCreator = function (configuration?: Configurat
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary Translate receipt item labels to a target language
+         * @param {TranslateLabelsIn} translateLabelsIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        translateReceiptLabelsReceiptsTranslateLabelsPost: async (translateLabelsIn: TranslateLabelsIn, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'translateLabelsIn' is not null or undefined
+            assertParamExists('translateReceiptLabelsReceiptsTranslateLabelsPost', 'translateLabelsIn', translateLabelsIn)
+            const localVarPath = `/receipts/translate-labels`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(translateLabelsIn, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -1832,6 +1914,19 @@ export const ReceiptsApiFp = function(configuration?: Configuration) {
             const localVarOperationServerBasePath = operationServerMap['ReceiptsApi.processReceiptUploadReceiptsProcessPost']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
+        /**
+         * 
+         * @summary Translate receipt item labels to a target language
+         * @param {TranslateLabelsIn} translateLabelsIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn: TranslateLabelsIn, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<TranslateLabelsOut>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ReceiptsApi.translateReceiptLabelsReceiptsTranslateLabelsPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
     }
 };
 
@@ -1851,6 +1946,16 @@ export const ReceiptsApiFactory = function (configuration?: Configuration, baseP
         processReceiptUploadReceiptsProcessPost(file: File, options?: RawAxiosRequestConfig): AxiosPromise<ReceiptProcessedOut> {
             return localVarFp.processReceiptUploadReceiptsProcessPost(file, options).then((request) => request(axios, basePath));
         },
+        /**
+         * 
+         * @summary Translate receipt item labels to a target language
+         * @param {TranslateLabelsIn} translateLabelsIn 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn: TranslateLabelsIn, options?: RawAxiosRequestConfig): AxiosPromise<TranslateLabelsOut> {
+            return localVarFp.translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn, options).then((request) => request(axios, basePath));
+        },
     };
 };
 
@@ -1867,6 +1972,15 @@ export interface ReceiptsApiInterface {
      */
     processReceiptUploadReceiptsProcessPost(file: File, options?: RawAxiosRequestConfig): AxiosPromise<ReceiptProcessedOut>;
 
+    /**
+     * 
+     * @summary Translate receipt item labels to a target language
+     * @param {TranslateLabelsIn} translateLabelsIn 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn: TranslateLabelsIn, options?: RawAxiosRequestConfig): AxiosPromise<TranslateLabelsOut>;
+
 }
 
 /**
@@ -1882,6 +1996,17 @@ export class ReceiptsApi extends BaseAPI implements ReceiptsApiInterface {
      */
     public processReceiptUploadReceiptsProcessPost(file: File, options?: RawAxiosRequestConfig) {
         return ReceiptsApiFp(this.configuration).processReceiptUploadReceiptsProcessPost(file, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Translate receipt item labels to a target language
+     * @param {TranslateLabelsIn} translateLabelsIn 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn: TranslateLabelsIn, options?: RawAxiosRequestConfig) {
+        return ReceiptsApiFp(this.configuration).translateReceiptLabelsReceiptsTranslateLabelsPost(translateLabelsIn, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

@@ -169,39 +169,27 @@ class TranslatedItem:
     index: int
 
 
-@dataclass
-class ProcessResult:
-    ok: bool
-    reason: str = ""
-    data: Optional[ReceiptData] = None
-    json_path: Optional[Path] = None
+def translate_receipt_item_labels(
+    items: list[LineItem],
+    target_language: str,
+) -> list[TranslatedItem]:
+    """
+    Translate receipt line labels to ``target_language`` using Mistral.
 
-    # ── translation ───────────────────────────────────────────────────────────
+    Only ``name`` and ``language`` on each ``LineItem`` are used for prompting;
+    other fields may be placeholders when calling from HTTP without full receipt data.
+    """
+    if not items:
+        return []
 
-    def translate(
-        self,
-        target_language: str,
-        interpreted: Optional[list[InterpretedItem]] = None,
-    ) -> list[TranslatedItem]:
-        if not self.ok or self.data is None:
-            raise RuntimeError("Cannot translate on a failed ProcessResult.")
+    client = Mistral(api_key=_require_mistral_api_key())
+    source_names = [item.name for item in items]
 
-        client = Mistral(api_key=_require_mistral_api_key())
-        items = self.data.items
-
-        if interpreted is not None:
-            interp_map = {ii.index: ii.interpreted_name for ii in interpreted}
-            source_names = [
-                interp_map.get(i, item.name) for i, item in enumerate(items)
-            ]
-        else:
-            source_names = [item.name for item in items]
-
-        label_list = "\n".join(
-            f'{i}. "{name}" [source language: {items[i].language}]'
-            for i, name in enumerate(source_names)
-        )
-        prompt = f"""
+    label_list = "\n".join(
+        f'{i}. "{name}" [source language: {items[i].language}]'
+        for i, name in enumerate(source_names)
+    )
+    prompt = f"""
 Translate each of the following receipt item labels into {target_language}.
 Each label is annotated with its source language as a hint.
 Preserve quantity descriptors. Do not translate brand names — keep them as-is
@@ -216,22 +204,38 @@ Return a JSON array with exactly {len(items)} objects, in the same order:
   ...
 ]
 """
-        raw = _call_mistral_text(client, prompt)
-        cleaned = _strip_fences(raw)
-        start, end = cleaned.find("["), cleaned.rfind("]") + 1
-        if start == -1 or end == 0:
-            raise ValueError(f"No JSON array in translate response:\n{raw}")
-        entries = json.loads(cleaned[start:end])
+    raw = _call_mistral_text(client, prompt)
+    cleaned = _strip_fences(raw)
+    start, end = cleaned.find("["), cleaned.rfind("]") + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No JSON array in translate response:\n{raw}")
+    entries = json.loads(cleaned[start:end])
 
-        return [
-            TranslatedItem(
-                original_name=source_names[e["index"]],
-                translated_name=str(e["translated_name"]),
-                source_language=items[e["index"]].language,
-                index=int(e["index"]),
-            )
-            for e in entries
-        ]
+    return [
+        TranslatedItem(
+            original_name=source_names[e["index"]],
+            translated_name=str(e["translated_name"]),
+            source_language=items[e["index"]].language,
+            index=int(e["index"]),
+        )
+        for e in entries
+    ]
+
+
+@dataclass
+class ProcessResult:
+    ok: bool
+    reason: str = ""
+    data: Optional[ReceiptData] = None
+    json_path: Optional[Path] = None
+
+    # ── translation ───────────────────────────────────────────────────────────
+
+    def translate(self, target_language: str) -> list[TranslatedItem]:
+        if not self.ok or self.data is None:
+            raise RuntimeError("Cannot translate on a failed ProcessResult.")
+
+        return translate_receipt_item_labels(self.data.items, target_language)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -1034,17 +1038,8 @@ if __name__ == "__main__":
             f"({item.unit_price}) x {item.quantity} ---> {item.total_price}"
         )
 
-    print("\n── Interpreting labels …")
-    interpreted = result.interpret_labels()
-    for ii in interpreted:
-        flag = "" if ii.interpreted else "  ⚑ unrecognised"
-        print(
-            f"  [{ii.index}] ({ii.language}) "
-            f"{ii.original_name!r:30s} → {ii.interpreted_name!r}{flag}"
-        )
-
     print("\n── Translating to English …")
-    translated = result.translate("English", interpreted=interpreted)
+    translated = result.translate("English")
     for ti in translated:
         print(
             f"  [{ti.index}] [{ti.source_language}] "
