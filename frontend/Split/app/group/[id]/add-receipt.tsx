@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation } from "@tanstack/react-query";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as DocumentPicker from "expo-document-picker";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -310,6 +311,56 @@ export default function AddReceiptScreen() {
     setSelectedItemIds(remainingEditableItems.map((item) => item.id));
   };
 
+  const translateMutation = useMutation({
+    mutationFn: async (itemsToTranslate: ReceiptItemEditor[]) => {
+      const { data } =
+        await backendClient.translateReceiptLabelsReceiptsTranslateLabelsPost({
+          target_language: "English",
+          items: itemsToTranslate.map((item) => ({
+            name: item.name,
+            language: "und",
+          })),
+        });
+      // Map results back to the ids we sent in (response uses index).
+      return data.labels.map((label) => ({
+        id: itemsToTranslate[label.index]?.id,
+        translatedName: label.translated_name,
+      }));
+    },
+    onSuccess: (results) => {
+      setReceiptItems((prev) =>
+        prev.map((item) => {
+          const match = results.find((entry) => entry.id === item.id);
+          if (!match || !match.translatedName) return item;
+          return { ...item, name: match.translatedName };
+        })
+      );
+      if (!receiptId) return;
+      for (const result of results) {
+        if (!result.id || !result.translatedName) continue;
+        updateDraftReceiptItem(groupId, receiptId, result.id, {
+          name: result.translatedName,
+        });
+      }
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error ? error.message : "Could not translate items.";
+      Alert.alert("Translate failed", message);
+    },
+  });
+
+  const translatableItems = remainingEditableItems.filter(
+    (item) => item.name.trim().length > 0
+  );
+  const canTranslateAll =
+    translatableItems.length > 0 && !translateMutation.isPending;
+
+  const handleTranslateAll = () => {
+    if (!canTranslateAll) return;
+    translateMutation.mutate(translatableItems);
+  };
+
   const pushToAddExpenseForItems = (
     items: ReceiptItemEditor[],
     returnToGroupIfDone: boolean
@@ -403,7 +454,37 @@ export default function AddReceiptScreen() {
     return (
       <SafeAreaView className="flex-1 bg-[#0f1115]">
         <View className="px-5 pt-16 pb-4 gap-3">
-          <Text className="text-3xl font-bold text-white">Create expenses</Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-3xl font-bold text-white">
+              Create expenses
+            </Text>
+            <Pressable
+              onPress={handleTranslateAll}
+              disabled={!canTranslateAll}
+              className={`flex-row items-center gap-1.5 rounded-[12px] border px-3 py-2 ${
+                canTranslateAll
+                  ? "border-sky-400/40 bg-sky-400/15"
+                  : "border-white/10 bg-white/5"
+              }`}
+            >
+              {translateMutation.isPending ? (
+                <ActivityIndicator size="small" color="#38bdf8" />
+              ) : (
+                <Ionicons
+                  name="language"
+                  size={16}
+                  color={canTranslateAll ? "#38bdf8" : "#ffffff40"}
+                />
+              )}
+              <Text
+                className={`text-sm font-semibold ${
+                  canTranslateAll ? "text-sky-400" : "text-white/30"
+                }`}
+              >
+                Translate
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View className="px-5 pb-6 flex-1 gap-4">

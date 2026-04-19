@@ -14,8 +14,13 @@ import {
 import { Configuration, type ConfigurationParameters } from "./configuration";
 import type { AxiosInstance } from "axios";
 
-/** Default FastAPI base URL for local development. */
-export const BACKEND_BASE_URL = "http://127.0.0.1:8000" as const;
+/**
+ * Default FastAPI base URL.
+ * Override via the `EXPO_PUBLIC_BACKEND_BASE_URL` env variable
+ * (e.g. set it to `http://54.234.108.128:8000` for the AWS deployment).
+ */
+export const BACKEND_BASE_URL =
+  process.env.EXPO_PUBLIC_BACKEND_BASE_URL ?? "http://127.0.0.1:8000";
 
 export type ClientConfig = {
   basePath?: string;
