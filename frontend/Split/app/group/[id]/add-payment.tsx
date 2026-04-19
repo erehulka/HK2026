@@ -514,10 +514,10 @@ export default function AddPaymentScreen() {
         <View className="gap-1">
           <Text className="text-4xl font-bold text-white">
             {isViewMode
-              ? "Payment details"
+              ? "Expense details"
               : isEditing
-              ? "Edit payment"
-              : "Add payment"}
+              ? "Edit expense"
+              : "Add expense"}
           </Text>
           {isViewMode ? (
             <Text className="text-sm text-white/45">

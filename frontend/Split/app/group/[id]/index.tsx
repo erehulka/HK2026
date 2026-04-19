@@ -268,18 +268,7 @@ export default function GroupDetailScreen() {
           >
             <Ionicons name="chevron-back" size={26} color="#2b6fff" />
           </Pressable>
-          <Pressable
-            onPress={() => router.push(`/group/${id}/members`)}
-            className="rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2"
-          >
-            {membersQuery.isPending ? (
-              <ActivityIndicator color="#38bdf8" />
-            ) : (
-              <Text className="text-sm font-semibold text-sky-400">
-                {memberCount} {memberCount === 1 ? "user" : "users"}
-              </Text>
-            )}
-          </Pressable>
+          <View className="h-10 w-10" />
         </View>
 
         <View className="gap-1">
@@ -290,7 +279,21 @@ export default function GroupDetailScreen() {
         </View>
 
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
-          <Text className="text-lg font-bold text-white">Overview</Text>
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="text-lg font-bold text-white">Overview</Text>
+            <Pressable
+              onPress={() => router.push(`/group/${id}/members`)}
+              className="rounded-full border border-white/10 bg-[#2a3038] px-4 py-2"
+            >
+              {membersQuery.isPending ? (
+                <ActivityIndicator color="#cbd5e1" />
+              ) : (
+                <Text className="text-sm font-semibold text-white/75">
+                  {memberCount} {memberCount === 1 ? "user" : "users"}
+                </Text>
+              )}
+            </Pressable>
+          </View>
           <View className="rounded-[14px] border border-white/5 bg-[#2a3038] p-4 gap-1">
             <Text className="text-[12px] uppercase tracking-[0.13em] text-white/45">
               Your balance
@@ -312,15 +315,18 @@ export default function GroupDetailScreen() {
           <View className="flex-row gap-3">
             <Pressable
               onPress={() => router.push(`/group/${id}/add-payment`)}
-              className="flex-1 rounded-[12px] py-3 items-center bg-[#2b6fff]"
+              className="flex-1 rounded-[12px] py-4 items-center bg-[#2b6fff]"
             >
-              <Text className="text-white font-semibold">Quick payment</Text>
+              <Text className="text-white font-semibold">Quick expense</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push(`/group/${id}/add-receipt`)}
-              className="flex-1 rounded-[12px] py-3 items-center bg-[#232831] border border-white/10"
+              className="flex-1 rounded-[12px] py-3 items-center bg-[#303743] border border-sky-400/25"
             >
-              <Text className="text-white font-semibold">Scan receipt</Text>
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="camera-outline" size={18} color="#7dd3fc" />
+                <Text className="font-semibold text-sky-100">Scan receipt</Text>
+              </View>
             </Pressable>
           </View>
         </View>
