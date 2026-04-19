@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
@@ -65,6 +66,31 @@ export default function GroupsScreen() {
   const formatBalance = (value: number) =>
     currencyFormatter.format(Math.abs(value));
 
+  const groupBalanceById = new Map(
+    (groups ?? []).map((group, index) => [group.id, groupBalanceQueries[index]])
+  );
+
+  const overallBalanceEur = (groups ?? []).reduce((total, group) => {
+    const query = groupBalanceById.get(group.id);
+    if (!query?.data) return total;
+    const net = computeUserNetBalanceEur(query.data, CURRENT_USER_BACKEND_ID);
+    return total + (net ?? 0);
+  }, 0);
+
+  const overallBalanceLabel =
+    overallBalanceEur > 0
+      ? "Overall you are owed:"
+      : overallBalanceEur < 0
+      ? "Overall you owe:"
+      : "Overall settled:";
+
+  const overallBalanceColor =
+    overallBalanceEur > 0
+      ? "text-emerald-400"
+      : overallBalanceEur < 0
+      ? "text-rose-400"
+      : "text-white/55";
+
   useFocusEffect(
     useCallback(() => {
       refetch();
@@ -75,14 +101,33 @@ export default function GroupsScreen() {
     <SafeAreaView className="flex-1 bg-[#0f1115]">
       <ScrollView
         className="flex-1"
-        contentContainerClassName="px-5 pt-10 pb-8 gap-5"
+        contentContainerClassName="px-5 pt-14 pb-8 gap-5"
         showsVerticalScrollIndicator={false}
       >
-        <View className="mt-9 flex-row items-center justify-between">
+        <View className="mt-10 flex-row items-center justify-between">
           <Text className="text-2xl font-bold text-white">Groups</Text>
 
-          <View className="h-10 w-10" />
+          <View className="h-12 w-16 items-center justify-center">
+            <Image
+              source={require("../assets/images/logo.png")}
+              style={{ width: 52, height: 52 }}
+              contentFit="contain"
+            />
+          </View>
         </View>
+
+        {isPending ? (
+          <Text className="text-sm text-white/45">Loading group summary...</Text>
+        ) : isError ? (
+          <Text className="text-sm text-rose-400">Couldn’t load group summary</Text>
+        ) : (
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="text-sm text-white/55">{overallBalanceLabel}</Text>
+            <Text className={`text-lg font-semibold ${overallBalanceColor} ml-9`}>
+              {formatBalance(overallBalanceEur)}
+            </Text>
+          </View>
+        )}
 
         <View className="gap-4 rounded-[22px] border border-white/8 bg-[#171a20] p-4">
           <View className="flex-row items-center justify-between">
