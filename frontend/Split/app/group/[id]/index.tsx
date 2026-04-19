@@ -116,8 +116,8 @@ export default function GroupDetailScreen() {
         id,
         {
           description: `Settle ${row.debtorName} -> ${row.creditorName}`,
-          paidBy: row.creditorId,
-          participantUserIds: [row.debtorId],
+          paidBy: row.debtorId,
+          participantUserIds: [row.creditorId],
           splitType: "Equal",
           items: [
             {
